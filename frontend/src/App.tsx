@@ -1,35 +1,69 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// src/App.tsx
+import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemText, ListItemIcon, CssBaseline } from '@mui/material';
+import { Home, ShoppingCart } from '@mui/icons-material';
+import { ProductsPage } from './pages/ProductsPage';
+
+// Largura do nosso menu lateral
+const drawerWidth = 240;
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Box sx={{ display: 'flex' }}>
+      {/* Reseta o CSS padrão */}
+      <CssBaseline />
+
+      {/* --- BARRA SUPERIOR (APPBAR) --- */}
+      <AppBar
+        position="fixed"
+        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }} // Garante que fique acima do menu
+      >
+        <Toolbar>
+          <Typography variant="h6" noWrap component="div">
+            Heaven
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      {/* --- MENU LATERAL (DRAWER) --- */}
+      <Drawer
+        variant="permanent" // Deixa o menu sempre visível
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+        }}
+      >
+        <Toolbar /> {/* Espaçador para o menu não ficar embaixo do AppBar */}
+        <Box sx={{ overflow: 'auto' }}>
+          <List>
+            <ListItem button key="Dashboard">
+              <ListItemIcon>
+                <Home />
+              </ListItemIcon>
+              <ListItemText primary="Dashboard" />
+            </ListItem>
+            
+            <ListItem button key="Produtos">
+              <ListItemIcon>
+                <ShoppingCart />
+              </ListItemIcon>
+              <ListItemText primary="Produtos" />
+            </ListItem>
+          </List>
+        </Box>
+      </Drawer>
+
+      {/* --- ÁREA DE CONTEÚDO PRINCIPAL --- */}
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        <Toolbar /> {/* Espaçador */}
+        
+        {/* 2. Substitua o "Bem-vindo" pela nossa página de produtos */}
+        <ProductsPage />
+
+      </Box>
+
+    </Box>
+  );
 }
 
-export default App
+export default App;
