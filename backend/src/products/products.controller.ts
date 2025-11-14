@@ -7,13 +7,16 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe, // 1. Importe o ParseIntPipe
+  ParseIntPipe,
+  UseGuards, // <-- 1. IMPORTAÇÃO ADICIONADA AQUI
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; // 2. Importe o guarda
 
-@Controller('products') //endpoint /produts
+@UseGuards(JwtAuthGuard) // 3. Proteja todas as rotas
+@Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 

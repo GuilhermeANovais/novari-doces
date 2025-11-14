@@ -3,7 +3,7 @@ import { Box, Typography, Button, IconButton } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { Add, Delete, Edit } from '@mui/icons-material'; // 1. IMPORTE O Edit
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { ProductModal } from '../components/ProductModal';
 
 // Interface
@@ -35,7 +35,7 @@ export function ProductsPage() {
   // Função para buscar os dados
   async function fetchProducts() {
     try {
-      const response = await axios.get('http://localhost:3000/products');
+      const response = await api.get('/products');
       setProducts(response.data);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
@@ -46,7 +46,7 @@ export function ProductsPage() {
   async function handleDelete(id: number) {
     if (window.confirm("Tem certeza que deseja deletar este produto?")) {
       try {
-        await axios.delete(`http://localhost:3000/products/${id}`);
+        await api.delete(`/products/${id}`);
         fetchProducts();
       } catch (error) {
         console.error("Erro ao deletar produto:", error);

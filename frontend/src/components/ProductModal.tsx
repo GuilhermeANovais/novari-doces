@@ -1,7 +1,7 @@
 // src/components/ProductModal.tsx
 import { Modal, Box, Typography, TextField, Button } from '@mui/material';
 import { useState, useEffect } from 'react'; // 1. IMPORTE o useEffect
-import axios from 'axios';
+import api from '../api';
 
 // Interface
 interface Product {
@@ -66,10 +66,10 @@ export function ProductModal({ open, handleClose, onSave, productToEdit }: Produ
     try {
       if (productToEdit) {
         // MODO EDITAR (PATCH)
-        await axios.patch(`http://localhost:3000/products/${productToEdit.id}`, productData);
+        await api.patch(`/products/${productToEdit.id}`, productData);
       } else {
         // MODO CRIAR (POST)
-        await axios.post('http://localhost:3000/products', productData);
+        await api.post('/products', productData);
       }
       
       onSave();     // Avise a página para recarregar
