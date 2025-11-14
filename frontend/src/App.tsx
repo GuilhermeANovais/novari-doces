@@ -1,14 +1,13 @@
 // src/App.tsx
 import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemText, ListItemIcon, CssBaseline, ListItemButton } from '@mui/material';
-import { Home, ShoppingCart } from '@mui/icons-material';
-import { Routes, Route, Link, Outlet } from 'react-router-dom'; // 1. Importe Outlet
-
-// Importe as páginas
+import { Home, ShoppingCart, Logout } from '@mui/icons-material';
+import { Routes, Route, Link, Outlet } from 'react-router-dom';
 import { ProductsPage } from './pages/ProductsPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { LoginPage } from './pages/LoginPage'; // 2. Importe a LoginPage
+import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { useAuth } from './contexts/AuthContext';
 
 const drawerWidth = 240;
 
@@ -16,6 +15,8 @@ const drawerWidth = 240;
  * Componente do Layout Principal (Dashboard com menu)
  */
 function DashboardLayout() {
+  const auth = useAuth(); // 3. CHAME o hook de autenticação
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -39,6 +40,7 @@ function DashboardLayout() {
       >
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
+          {/* Lista de navegação principal */}
           <List>
             <ListItem key="Dashboard" disablePadding>
               <ListItemButton component={Link} to="/">
@@ -53,11 +55,23 @@ function DashboardLayout() {
               </ListItemButton>
             </ListItem>
           </List>
+          
+          {/* Lista de Ações (Sair) */}
+          <List sx={{ marginTop: 'auto' }}> {/* Empurra para o fundo */}
+            <ListItem key="Sair" disablePadding>
+              {/* 4. ADICIONE o botão Sair que chama auth.logout() */}
+              <ListItemButton onClick={() => auth.logout()}>
+                <ListItemIcon>
+                  <Logout />
+                </ListItemIcon>
+                <ListItemText primary="Sair" />
+              </ListItemButton>
+            </ListItem>
+          </List>
         </Box>
       </Drawer>
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
-        {/* 3. O Outlet renderiza a rota "filha" (Dashboard ou Produtos) */}
         <Outlet /> 
       </Box>
     </Box>
