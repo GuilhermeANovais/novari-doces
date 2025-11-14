@@ -1,14 +1,14 @@
 // src/pages/NewOrderPage.tsx
 import {
   Box, Typography, Grid, Paper, List, ListItem, ListItemText, Button,
-  CircularProgress, Divider, IconButton
+  CircularProgress, Divider, IconButton, Snackbar, Alert
 } from '@mui/material';
 import { Add, Remove, Delete } from '@mui/icons-material';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
-// Interface para os nossos produtos (do backend)
+// Interface Product
 interface Product {
   id: number;
   name: string;
@@ -16,18 +16,27 @@ interface Product {
   description: string;
 }
 
-// Interface para o item no carrinho
+// Interface CartItem
 interface CartItem extends Product {
   quantity: number;
 }
 
+// Tipo para o estado do snackbar
+type SnackbarState = {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error';
+} | null;
+
 export function NewOrderPage() {
-  const [products, setProducts] = useState<Product[]>([]); // Lista de produtos disponíveis
-  const [cart, setCart] = useState<CartItem[]>([]); // Itens no carrinho
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Para o botão de finalizar
+  const [snackbar, setSnackbar] = useState<SnackbarState>(null);
   const navigate = useNavigate();
 
-  // Buscar todos os produtos disponíveis ao carregar a página
+  // Buscar produtos
   useEffect(() => {
     async function fetchProducts() {
       try {
@@ -43,40 +52,29 @@ export function NewOrderPage() {
   }, []);
 
   // --- LÓGICA DO CARRINHO ---
-
-  // 1. Adicionar um produto ao carrinho
+  // (handleAddToCart, handleRemoveFromCart, handleDeleteItem, total - sem alterações)
   const handleAddToCart = (productToAdd: Product) => {
     setCart((prevCart) => {
-      // Verifique se o item já existe no carrinho
       const existingItem = prevCart.find((item) => item.id === productToAdd.id);
-
       if (existingItem) {
-        // Se existir, apenas aumente a quantidade
         return prevCart.map((item) =>
           item.id === productToAdd.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       } else {
-        // Se não existir, adicione-o ao carrinho com quantidade 1
         return [...prevCart, { ...productToAdd, quantity: 1 }];
       }
     });
   };
 
-  // 2. Diminuir a quantidade ou remover
   const handleRemoveFromCart = (productId: number) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productId);
-
       if (!existingItem) return prevCart;
-
-      // Se a quantidade for 1, remova o item do carrinho
       if (existingItem.quantity === 1) {
         return prevCart.filter((item) => item.id !== productId);
       }
-      
-      // Caso contrário, apenas diminua a quantidade
       return prevCart.map((item) =>
         item.id === productId
           ? { ...item, quantity: item.quantity - 1 }
@@ -85,24 +83,55 @@ export function NewOrderPage() {
     });
   };
 
-  // 3. Remover completamente o item (botão da lixeira)
   const handleDeleteItem = (productId: number) => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
   };
 
-  // 4. Calcular o total (useMemo evita recálculos desnecessários)
   const total = useMemo(() => {
     return cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   }, [cart]);
+  
+  // --- SUBMISSÃO DO PEDIDO ---
 
-  // 5. Finalizar o pedido
-  const handleFinishOrder = () => {
-    console.log("Pedido a ser enviado:", cart);
-    // Próximo passo: Chamar o api.post('/orders', ...)
+  // 1. IMPLEMENTE O handleFinishOrder
+  const handleFinishOrder = async () => {
+    setIsSubmitting(true);
+    setSnackbar(null);
+
+    // 2. Transforme o carrinho para o formato do DTO do backend
+    const orderData = {
+      items: cart.map(item => ({
+        productId: item.id,
+        quantity: item.quantity,
+      })),
+    };
+
+    try {
+      // 3. Envie para o backend
+      await api.post('/orders', orderData);
+      
+      setSnackbar({ open: true, message: 'Pedido criado com sucesso!', severity: 'success' });
+      setCart([]); // Limpe o carrinho
+      
+      // Redirecione para a lista de pedidos após 2 segundos
+      setTimeout(() => {
+        navigate('/orders');
+      }, 2000);
+
+    } catch (error) {
+      console.error("Erro ao finalizar pedido:", error);
+      setSnackbar({ open: true, message: 'Erro ao finalizar pedido.', severity: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 4. Função para fechar o snackbar
+  const handleCloseSnackbar = () => {
+    setSnackbar(null);
   };
 
   // --- JSX ---
-
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
@@ -112,7 +141,8 @@ export function NewOrderPage() {
       <Grid container spacing={3}>
         {/* Coluna da Esquerda: Lista de Produtos */}
         <Grid item xs={12} md={7}>
-          <Paper elevation={3} sx={{ p: 2, backgroundColor: 'white' }}>
+          <Paper elevation={3} sx={{ p: 3, backgroundColor: 'white' }}>
+            {/* ... (Lista de Produtos - sem alteração) ... */}
             <Typography variant="h6" gutterBottom>Produtos Disponíveis</Typography>
             {loadingProducts ? (
               <CircularProgress />
@@ -126,7 +156,7 @@ export function NewOrderPage() {
                       <Button 
                         variant="contained" 
                         size="small"
-                        onClick={() => handleAddToCart(product)} // Ação de adicionar
+                        onClick={() => handleAddToCart(product)}
                       >
                         Adicionar
                       </Button>
@@ -149,7 +179,7 @@ export function NewOrderPage() {
             <Typography variant="h6" gutterBottom>Carrinho</Typography>
             <Divider sx={{ mb: 2 }} />
             
-            {/* Lista de Itens no Carrinho */}
+            {/* ... (Lista de Itens no Carrinho - sem alteração) ... */}
             <List sx={{ maxHeight: '40vh', overflow: 'auto' }}>
               {cart.length === 0 ? (
                 <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
@@ -187,14 +217,32 @@ export function NewOrderPage() {
               color="primary"
               fullWidth
               sx={{ mt: 2 }}
-              disabled={cart.length === 0} // Habilita se o carrinho tiver itens
+              disabled={cart.length === 0 || isSubmitting} // 5. Atualize o 'disabled'
               onClick={handleFinishOrder}
             >
-              Finalizar Pedido
+              {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Finalizar Pedido"}
             </Button>
           </Paper>
         </Grid>
       </Grid>
+
+      {/* 6. Adicione o Snackbar */}
+      {snackbar && (
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      )}
     </Box>
   );
 }

@@ -53,7 +53,7 @@ export class OrdersService {
     // Isso garante que ou TUDO funciona, ou NADA é salvo.
     // Se a criação do 'Order' funcionar, mas um 'OrderItem' falhar,
     // o Prisma desfaz a criação do 'Order' (rollback).
-    
+
     return this.prisma.$transaction(async (tx) => {
       // Crie o Pedido "pai"
       const order = await tx.order.create({
@@ -122,13 +122,33 @@ export class OrdersService {
   }
 
   update(id: number, updateOrderDto: UpdateOrderDto) {
-    // Implementação futura: (ex: mudar o status para "CONCLUÍDO")
-    // O DTO gerado precisa ser ajustado para essa lógica
-    return `This action updates a #${id} order`;
+    // A lógica para atualizar apenas o status
+    return this.prisma.order.update({
+      where: { id: id },
+      data: {
+        status: updateOrderDto.status,
+      },
+    });
   }
 
   remove(id: number) {
-    // Implementação futura: deletar um pedido (precisa de transação para deletar os itens)
-    return `This action removes a #${id} order`;
+    // Usamos uma transação para garantir que ambas as operações funcionem
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Delete todos os "OrderItems" associados a este Order ID
+      await tx.orderItem.deleteMany({
+        where: {
+          orderId: id,
+        },
+      });
+
+      // 2. Agora que os "filhos" se foram, delete o "pai" (Order)
+      const deletedOrder = await tx.order.delete({
+        where: {
+          id: id,
+        },
+      });
+
+      return deletedOrder;
+    });
   }
 }

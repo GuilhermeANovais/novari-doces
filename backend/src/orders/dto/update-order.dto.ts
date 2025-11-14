@@ -1,4 +1,18 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateOrderDto } from './create-order.dto';
+// src/orders/dto/update-order.dto.ts
+import { IsString, IsNotEmpty, IsIn } from 'class-validator';
 
-export class UpdateOrderDto extends PartialType(CreateOrderDto) {}
+// Lista de status válidos
+const validStatus = [
+  'PENDENTE',
+  'CONCLUÍDO',
+  'CANCELADO',
+  'SINAL PAGO',
+  'EM ANDAMENTO',
+];
+
+export class UpdateOrderDto {
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(validStatus, { message: 'Status inválido.' })
+  status: string;
+}
