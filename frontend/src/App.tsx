@@ -1,6 +1,6 @@
 // src/App.tsx
 import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemText, ListItemIcon, CssBaseline, ListItemButton } from '@mui/material';
-import { Home, ShoppingCart, Logout, ReceiptLong } from '@mui/icons-material';
+import { Home, ShoppingCart, Logout, ReceiptLong, People } from '@mui/icons-material';
 import { Routes, Route, Link, Outlet } from 'react-router-dom';
 import { ProductsPage } from './pages/ProductsPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -10,6 +10,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuth } from './contexts/AuthContext';
 import { OrdersPage } from './pages/OrdersPage';
 import { NewOrderPage } from './pages/NewOrderPage';
+import { ClientsPage } from './pages/ClientsPage';
 
 const drawerWidth = 240;
 
@@ -64,6 +65,14 @@ function DashboardLayout() {
                 <ListItemText primary="Pedidos" />
               </ListItemButton>
             </ListItem>
+            <ListItem key="Clientes" disablePadding>
+              <ListItemButton component={Link} to="/clients">
+                <ListItemIcon>
+                  <People />
+                </ListItemIcon>
+                <ListItemText primary="Clientes" />
+              </ListItemButton>
+            </ListItem>
           </List>
           
           {/* Lista de Ações (Sair) */}
@@ -110,6 +119,7 @@ function App() {
         <Route path="products" element={<ProductsPage />} />
         <Route path="orders" element={<OrdersPage />} />
         <Route path="orders/new" element={<NewOrderPage />} />
+        <Route path="clients" element={<ClientsPage />} />
       </Route>
     </Routes>
   );

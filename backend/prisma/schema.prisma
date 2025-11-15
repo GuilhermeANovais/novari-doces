@@ -8,6 +8,16 @@ datasource db {
 }
 
 //modelo de dados
+model Client {
+  id          Int       @id @default(autoincrement())
+  name        String
+  phone       String?
+  address     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  orders      Order[]
+}
 //usuário
 model User {
   id          Int       @id @default(autoincrement())
@@ -48,8 +58,12 @@ model Order {
   createdAt   DateTime  @default(now())
   status      String    @default("PENDENTE")
   total       Float
+  observations String?
   user User             @relation(fields: [userId], references: [id])
   userId      Int
+
+  client Client?        @relation(fields: [clientId], references: [id])
+  clientId    Int?
   items OrderItem[]
 }
 

@@ -4,38 +4,22 @@ import {
   SelectChangeEvent, Snackbar, Alert, IconButton
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { Add, Delete } from '@mui/icons-material';
+import { Add, Delete, Visibility } from '@mui/icons-material'; // 1. SUBSTITUA 'Edit' por 'Visibility'
 import { useEffect, useState } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
+// 2. Importe o novo modal e a interface
+import { OrderDetailsModal, FullOrder } from '../components/OrderDetailsModal'; 
 
-// Interface para um item de pedido (aninhado)
-interface OrderItem {
-  id: number;
-  quantity: number;
-  price: number;
-  product: {
-    name: string;
-  };
-}
-
-// Interface para o usuário (aninhado)
-interface OrderUser {
-  name: string | null;
-  email: string;
-}
-
-// Interface principal do Pedido
+// --- Interfaces (simplificadas, pois a 'FullOrder' está no modal) ---
 interface Order {
   id: number;
   createdAt: string;
   status: string;
   total: number;
-  user: OrderUser;
-  items: OrderItem[];
+  user: { name: string | null; email: string; };
+  items: any[]; // Apenas para 'length'
 }
-
-// Tipo para o estado do snackbar
 type SnackbarState = {
   open: boolean;
   message: string;
@@ -49,7 +33,12 @@ export function OrdersPage() {
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
   const navigate = useNavigate();
 
-  // Função para buscar os pedidos
+  // 3. Estados para o novo modal de detalhes
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<FullOrder | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  // ... (fetchOrders, handleStatusChange, handleCloseSnackbar, handleNewOrder, handleDeleteOrder - sem alterações) ...
   async function fetchOrders() {
     try {
       const response = await api.get('/orders');
@@ -61,31 +50,21 @@ export function OrdersPage() {
       setLoading(false);
     }
   }
-
-  // Buscar pedidos ao carregar a página
   useEffect(() => {
     fetchOrders();
   }, []);
-
-  // Função para atualizar o status
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
       await api.patch(`/orders/${id}`, { status: newStatus });
-      fetchOrders(); // Recarrega a tabela
+      fetchOrders(); 
       setSnackbar({ open: true, message: 'Status atualizado com sucesso!', severity: 'success' });
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
       setSnackbar({ open: true, message: 'Erro ao atualizar status.', severity: 'error' });
     }
   };
-
-  // Função para fechar o snackbar
   const handleCloseSnackbar = () => setSnackbar(null);
-  
-  // Função para navegar para a página de novo pedido
   const handleNewOrder = () => navigate('/orders/new');
-
-  // Função para deletar um pedido
   const handleDeleteOrder = async (id: number) => {
     if (window.confirm('Tem certeza que deseja deletar este pedido? Esta ação não pode ser desfeita.')) {
       try {
@@ -99,14 +78,38 @@ export function OrdersPage() {
     }
   };
 
-  // Definição das Colunas
+  // 4. Funções para o novo modal
+  const handleViewDetails = async (id: number) => {
+    setDetailsModalOpen(true);
+    setDetailsLoading(true);
+    try {
+      // O backend já está pronto para isto
+      const response = await api.get<FullOrder>(`/orders/${id}`);
+      setSelectedOrder(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar detalhes do pedido:", error);
+      setSnackbar({ open: true, message: 'Erro ao buscar detalhes do pedido.', severity: 'error' });
+      setDetailsModalOpen(false); // Fecha o modal se falhar
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleCloseDetailsModal = () => {
+    setDetailsModalOpen(false);
+    setSelectedOrder(null);
+  };
+
+
+  // 5. Definição das Colunas (Atualize a coluna de Ações)
   const columns: GridColDef[] = [
+    // ... (colunas id, userName, status, total, itemCount, createdAt - sem alterações) ...
     { field: 'id', headerName: 'ID', width: 70 },
     {
-      field: 'userName',
+      field: 'clientName',
       headerName: 'Cliente',
       width: 200,
-      valueGetter: (params) => params?.row?.user?.name || params?.row?.user.email || '',
+      valueGetter: (params) => params?.row?.client?.name || 'Pedido Interno',
     },
     {
       field: 'status',
@@ -148,21 +151,34 @@ export function OrdersPage() {
     {
       field: 'actions',
       headerName: 'Ações',
-      width: 200,
+      width: 240, // Aumente a largura
       sortable: false,
       renderCell: (params) => {
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            {/* Ícone de Ver Detalhes */}
+            <IconButton
+              color="default"
+              size="small"
+              onClick={() => handleViewDetails(params.row.id)}
+            >
+              <Visibility />
+            </IconButton>
+            {/* Seletor de Status */}
             <Select
               value={params.row.status}
               onChange={(e: SelectChangeEvent) => handleStatusChange(params.row.id, e.target.value)}
               size="small"
-              sx={{ flexGrow: 1, mr: 1 }} // Ocupa o espaço
+              sx={{ flexGrow: 1, mx: 1 }} // Margin (x-axis)
             >
               <MenuItem value="PENDENTE">Pendente</MenuItem>
               <MenuItem value="CONCLUÍDO">Concluído</MenuItem>
               <MenuItem value="CANCELADO">Cancelado</MenuItem>
+              <MenuItem value="EM ANDAMENTO">Em Andamento</MenuItem>
+              <MenuItem value="SINAL PAGO">Sinal Pago</MenuItem>
+              
             </Select>
+            {/* Ícone de Deletar */}
             <IconButton
               color="error"
               size="small"
@@ -178,7 +194,7 @@ export function OrdersPage() {
 
   return (
     <Box sx={{ height: '100%', width: '100%' }}>
-      {/* --- CABEÇALHO DA PÁGINA --- */}
+      {/* ... (Cabeçalho da Página - sem alterações) ... */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">
           Pedidos
@@ -193,7 +209,7 @@ export function OrdersPage() {
         </Button>
       </Box>
 
-      {/* --- TABELA DE DADOS --- */}
+      {/* ... (Tabela de Dados - sem alterações) ... */}
       <Box sx={{ height: 500, width: '100%', backgroundColor: 'white' }}>
         <DataGrid
           rows={orders}
@@ -206,7 +222,15 @@ export function OrdersPage() {
         />
       </Box>
 
-      {/* --- SNACKBAR --- */}
+      {/* 6. Adicione o novo Modal */}
+      <OrderDetailsModal
+        open={detailsModalOpen}
+        handleClose={handleCloseDetailsModal}
+        order={selectedOrder}
+        loading={detailsLoading}
+      />
+
+      {/* ... (Snackbar - sem alterações) ... */}
       {snackbar && (
         <Snackbar
           open={snackbar.open}

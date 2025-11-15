@@ -1,58 +1,76 @@
 // src/pages/NewOrderPage.tsx
 import {
   Box, Typography, Grid, Paper, List, ListItem, ListItemText, Button,
-  CircularProgress, Divider, IconButton, Snackbar, Alert
+  CircularProgress, Divider, IconButton, Snackbar, Alert,
+  TextField, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent
 } from '@mui/material';
 import { Add, Remove, Delete } from '@mui/icons-material';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
-// Interface Product
+// --- Interfaces ---
 interface Product {
   id: number;
   name: string;
   price: number;
   description: string;
 }
-
-// Interface CartItem
 interface CartItem extends Product {
   quantity: number;
 }
-
-// Tipo para o estado do snackbar
+interface Client {
+  id: number;
+  name: string;
+}
 type SnackbarState = {
   open: boolean;
   message: string;
   severity: 'success' | 'error';
 } | null;
 
+// ADICIONE O 'export' AQUI
 export function NewOrderPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Para o botão de finalizar
+  const [loadingClients, setLoadingClients] = useState(true);
+  
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [observations, setObservations] = useState('');
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
   const navigate = useNavigate();
 
-  // Buscar produtos
+  // Buscar produtos E clientes
   useEffect(() => {
-    async function fetchProducts() {
+    async function fetchData() {
+      // Buscar produtos
       try {
-        const response = await api.get('/products');
-        setProducts(response.data);
+        const productResponse = await api.get('/products');
+        setProducts(productResponse.data);
       } catch (error) {
         console.error("Erro ao buscar produtos:", error);
       } finally {
         setLoadingProducts(false);
       }
+      
+      // Buscar clientes
+      try {
+        const clientResponse = await api.get('/clients');
+        setClients(clientResponse.data);
+      } catch (error) {
+        console.error("Erro ao buscar clientes:", error);
+      } finally {
+        setLoadingClients(false);
+      }
     }
-    fetchProducts();
+    fetchData();
   }, []);
 
-  // --- LÓGICA DO CARRINHO ---
-  // (handleAddToCart, handleRemoveFromCart, handleDeleteItem, total - sem alterações)
+  // --- Lógica do Carrinho ---
   const handleAddToCart = (productToAdd: Product) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productToAdd.id);
@@ -67,7 +85,6 @@ export function NewOrderPage() {
       }
     });
   };
-
   const handleRemoveFromCart = (productId: number) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productId);
@@ -82,38 +99,34 @@ export function NewOrderPage() {
       );
     });
   };
-
   const handleDeleteItem = (productId: number) => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
   };
-
   const total = useMemo(() => {
     return cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   }, [cart]);
   
-  // --- SUBMISSÃO DO PEDIDO ---
-
-  // 1. IMPLEMENTE O handleFinishOrder
+  // --- Submissão do Pedido ---
   const handleFinishOrder = async () => {
     setIsSubmitting(true);
     setSnackbar(null);
 
-    // 2. Transforme o carrinho para o formato do DTO do backend
     const orderData = {
       items: cart.map(item => ({
         productId: item.id,
         quantity: item.quantity,
       })),
+      clientId: selectedClientId ? Number(selectedClientId) : undefined,
+      observations: observations || undefined,
     };
 
     try {
-      // 3. Envie para o backend
       await api.post('/orders', orderData);
-      
       setSnackbar({ open: true, message: 'Pedido criado com sucesso!', severity: 'success' });
-      setCart([]); // Limpe o carrinho
+      setCart([]);
+      setObservations('');
+      setSelectedClientId('');
       
-      // Redirecione para a lista de pedidos após 2 segundos
       setTimeout(() => {
         navigate('/orders');
       }, 2000);
@@ -126,10 +139,7 @@ export function NewOrderPage() {
     }
   };
 
-  // 4. Função para fechar o snackbar
-  const handleCloseSnackbar = () => {
-    setSnackbar(null);
-  };
+  const handleCloseSnackbar = () => setSnackbar(null);
 
   // --- JSX ---
   return (
@@ -141,31 +151,21 @@ export function NewOrderPage() {
       <Grid container spacing={3}>
         {/* Coluna da Esquerda: Lista de Produtos */}
         <Grid item xs={12} md={7}>
-          <Paper elevation={3} sx={{ p: 3, backgroundColor: 'white' }}>
-            {/* ... (Lista de Produtos - sem alteração) ... */}
+          <Paper elevation={3} sx={{ p: 2, backgroundColor: 'white' }}>
             <Typography variant="h6" gutterBottom>Produtos Disponíveis</Typography>
             {loadingProducts ? (
               <CircularProgress />
             ) : (
               <List sx={{ maxHeight: '60vh', overflow: 'auto' }}>
                 {products.map((product) => (
-                  <ListItem 
-                    key={product.id}
-                    divider
+                  <ListItem key={product.id} divider
                     secondaryAction={
-                      <Button 
-                        variant="contained" 
-                        size="small"
-                        onClick={() => handleAddToCart(product)}
-                      >
+                      <Button variant="contained" size="small" onClick={() => handleAddToCart(product)}>
                         Adicionar
                       </Button>
                     }
                   >
-                    <ListItemText 
-                      primary={product.name}
-                      secondary={`R$ ${product.price.toFixed(2)}`}
-                    />
+                    <ListItemText primary={product.name} secondary={`R$ ${product.price.toFixed(2)}`} />
                   </ListItem>
                 ))}
               </List>
@@ -176,11 +176,45 @@ export function NewOrderPage() {
         {/* Coluna da Direita: Carrinho */}
         <Grid item xs={12} md={5}>
           <Paper elevation={3} sx={{ p: 2, backgroundColor: 'white' }}>
-            <Typography variant="h6" gutterBottom>Carrinho</Typography>
+            <Typography variant="h6" gutterBottom>Detalhes do Pedido</Typography>
             <Divider sx={{ mb: 2 }} />
-            
-            {/* ... (Lista de Itens no Carrinho - sem alteração) ... */}
-            <List sx={{ maxHeight: '40vh', overflow: 'auto' }}>
+
+            {/* NOVOS CAMPOS (CLIENTE E OBSERVAÇÕES) */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="client-select-label">Cliente (Opcional)</InputLabel>
+              <Select
+                labelId="client-select-label"
+                value={selectedClientId}
+                label="Cliente (Opcional)"
+                onChange={(e: SelectChangeEvent) => setSelectedClientId(e.target.value)}
+                disabled={loadingClients}
+              >
+                <MenuItem value="">
+                  <em>Nenhum (Pedido interno)</em>
+                </MenuItem>
+                {clients.map((client) => (
+                  <MenuItem key={client.id} value={client.id}>
+                    {client.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Observações (Opcional)"
+              multiline
+              rows={2}
+              fullWidth
+              margin="normal"
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+            />
+
+            <Divider sx={{ mt: 2, mb: 2 }} />
+            <Typography variant="h6" gutterBottom>Carrinho</Typography>
+
+            {/* Lista de Itens no Carrinho */}
+            <List sx={{ maxHeight: '30vh', overflow: 'auto' }}>
               {cart.length === 0 ? (
                 <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
                   O carrinho está vazio.
@@ -192,22 +226,15 @@ export function NewOrderPage() {
                       primary={item.name}
                       secondary={`Qtd: ${item.quantity} x R$ ${item.price.toFixed(2)}`}
                     />
-                    <IconButton size="small" onClick={() => handleAddToCart(item)}>
-                      <Add />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleRemoveFromCart(item.id)}>
-                      <Remove />
-                    </IconButton>
-                    <IconButton size="small" edge="end" onClick={() => handleDeleteItem(item.id)}>
-                      <Delete color="error" />
-                    </IconButton>
+                    <IconButton size="small" onClick={() => handleAddToCart(item)}><Add /></IconButton>
+                    <IconButton size="small" onClick={() => handleRemoveFromCart(item.id)}><Remove /></IconButton>
+                    <IconButton size="small" edge="end" onClick={() => handleDeleteItem(item.id)}><Delete color="error" /></IconButton>
                   </ListItem>
                 ))
               )}
             </List>
 
             <Divider sx={{ mt: 2, mb: 2 }} />
-
             <Typography variant="h5">
               Total: R$ {total.toFixed(2)}
             </Typography>
@@ -217,7 +244,7 @@ export function NewOrderPage() {
               color="primary"
               fullWidth
               sx={{ mt: 2 }}
-              disabled={cart.length === 0 || isSubmitting} // 5. Atualize o 'disabled'
+              disabled={cart.length === 0 || isSubmitting}
               onClick={handleFinishOrder}
             >
               {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Finalizar Pedido"}
@@ -226,7 +253,7 @@ export function NewOrderPage() {
         </Grid>
       </Grid>
 
-      {/* 6. Adicione o Snackbar */}
+      {/* Snackbar */}
       {snackbar && (
         <Snackbar
           open={snackbar.open}
@@ -234,11 +261,7 @@ export function NewOrderPage() {
           onClose={handleCloseSnackbar}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
             {snackbar.message}
           </Alert>
         </Snackbar>

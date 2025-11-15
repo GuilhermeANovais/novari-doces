@@ -7,6 +7,8 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { OrdersModule } from './orders/orders.module';
+import { ClientsModule } from './clients/clients.module';
+import { PdfService } from './pdf/pdf.service';
 
 @Module({
   imports: [
@@ -17,8 +19,9 @@ import { OrdersModule } from './orders/orders.module';
     AuthModule,
     DashboardModule,
     OrdersModule,
+    ClientsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, PdfService],
 })
 export class AppModule {}
