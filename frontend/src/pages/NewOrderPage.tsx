@@ -37,7 +37,7 @@ export function NewOrderPage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingClients, setLoadingClients] = useState(true);
   
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedClientId, setSelectedClientId] = useState<number | ''>(''); 
   const [observations, setObservations] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -186,14 +186,15 @@ export function NewOrderPage() {
                 labelId="client-select-label"
                 value={selectedClientId}
                 label="Cliente (Opcional)"
-                onChange={(e: SelectChangeEvent) => setSelectedClientId(e.target.value)}
+                // Converte o valor (que é string) para número, exceto se for vazio
+                onChange={(e: SelectChangeEvent) => setSelectedClientId(e.target.value === '' ? '' : Number(e.target.value))}
                 disabled={loadingClients}
               >
-                <MenuItem value="">
+                <MenuItem value=""> {/* O valor "" corresponde ao estado inicial */}
                   <em>Nenhum (Pedido interno)</em>
                 </MenuItem>
                 {clients.map((client) => (
-                  <MenuItem key={client.id} value={client.id}>
+                  <MenuItem key={client.id} value={client.id}> {/* Use o número aqui */}
                     {client.name}
                   </MenuItem>
                 ))}

@@ -89,49 +89,68 @@ export class OrdersService {
   }
 
   // Os métodos abaixo foram gerados pelo Nest CLI e podem ser implementados
-  
-  findAll() {
-    // Implementação futura: listar todos os pedidos
-    return this.prisma.order.findMany({
-      include: {
-        user: {
-          select: { name: true, email: true } // Não inclua a senha do usuário
-        },
-        client: { // Inclua os dados do cliente
-          select: { name: true, phone: true }
-        },
-        items: {
-          include: {
-            product: {
-              select: { name: true } // Mostre o nome do produto
-            }
-          }
-        }
-      }
-    });
-  }
 
-  findOne(id: number) {
-    // Implementação futura: buscar um pedido específico
-    return this.prisma.order.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: { name: true, email: true }
-        },
-        client: {
-          select: { name: true, phone: true, address: true }
-        },
-        items: {
-          include: {
-            product: {
-              select: { name: true, price: true }
-            }
+// Substitua a função findAll() por esta
+findAll() {
+  return this.prisma.order.findMany({
+    select: {
+      id: true,
+      total: true,
+      status: true,
+      createdAt: true,       // obrigatório para o frontend
+      user: {
+        select: { name: true, email: true }
+      },
+      client: {
+        select: { name: true, phone: true }
+      },
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          price: true,
+          product: {
+            select: { name: true }
           }
         }
       }
-    });
-  }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+
+// Substitua a função findOne(id: number) por esta
+findOne(id: number) {
+  return this.prisma.order.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      status: true,
+      total: true,
+      observations: true,
+      createdAt: true,
+      user: {
+        select: { name: true, email: true }
+      },
+      client: {
+        select: { id: true, name: true, phone: true, address: true }
+      },
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          price: true,
+          product: {
+            select: { id: true, name: true, price: true }
+          }
+        }
+      }
+    }
+  });
+}
+
+
 
   update(id: number, updateOrderDto: UpdateOrderDto) {
     // Implementação: atualizar o status

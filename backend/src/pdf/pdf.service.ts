@@ -49,7 +49,7 @@ export class PdfService {
         <head>
           <style>
             body { font-family: Times New Roman, serif; margin: 40px; }
-            h1 { color: #1B5E20; } /* Verde Escuro */
+            h1 { color: #8f1e85ff; } /* Verde Escuro */
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f2f2f2; }

@@ -4,22 +4,13 @@ import {
   SelectChangeEvent, Snackbar, Alert, IconButton
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { Add, Delete, Visibility } from '@mui/icons-material'; // 1. SUBSTITUA 'Edit' por 'Visibility'
-import { useEffect, useState } from 'react';
+import { Add, Delete, Visibility } from '@mui/icons-material';
+import { useEffect, useState, useCallback, useMemo } from 'react'; // 1. Importe useCallback e useMemo
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
-// 2. Importe o novo modal e a interface
-import { OrderDetailsModal, FullOrder } from '../components/OrderDetailsModal'; 
+import { OrderDetailsModal } from '../components/OrderDetailsModal'; 
+import { OrderSummary } from '../types/entities'; // 2. Importe o tipo centralizado
 
-// --- Interfaces (simplificadas, pois a 'FullOrder' está no modal) ---
-interface Order {
-  id: number;
-  createdAt: string;
-  status: string;
-  total: number;
-  user: { name: string | null; email: string; };
-  items: any[]; // Apenas para 'length'
-}
 type SnackbarState = {
   open: boolean;
   message: string;
@@ -28,20 +19,19 @@ type SnackbarState = {
 
 
 export function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderSummary[]>([]); // 3. Use o tipo OrderSummary
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
   const navigate = useNavigate();
 
-  // 3. Estados para o novo modal de detalhes
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<FullOrder | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
+  // 4. Estado do Modal simplificado
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
-  // ... (fetchOrders, handleStatusChange, handleCloseSnackbar, handleNewOrder, handleDeleteOrder - sem alterações) ...
-  async function fetchOrders() {
+  // 5. Use 'useCallback' para otimizar as funções
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await api.get('/orders');
+      const response = await api.get<OrderSummary[]>('/orders');
       setOrders(response.data);
     } catch (error) {
       console.error("Erro ao buscar pedidos:", error);
@@ -49,11 +39,13 @@ export function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []); // Array vazio = a função nunca muda
+
   useEffect(() => {
     fetchOrders();
-  }, []);
-  const handleStatusChange = async (id: number, newStatus: string) => {
+  }, [fetchOrders]);
+
+  const handleStatusChange = useCallback(async (id: number, newStatus: string) => {
     try {
       await api.patch(`/orders/${id}`, { status: newStatus });
       fetchOrders(); 
@@ -62,10 +54,9 @@ export function OrdersPage() {
       console.error("Erro ao atualizar status:", error);
       setSnackbar({ open: true, message: 'Erro ao atualizar status.', severity: 'error' });
     }
-  };
-  const handleCloseSnackbar = () => setSnackbar(null);
-  const handleNewOrder = () => navigate('/orders/new');
-  const handleDeleteOrder = async (id: number) => {
+  }, [fetchOrders]); // Depende do fetchOrders
+
+  const handleDeleteOrder = useCallback(async (id: number) => {
     if (window.confirm('Tem certeza que deseja deletar este pedido? Esta ação não pode ser desfeita.')) {
       try {
         await api.delete(`/orders/${id}`);
@@ -76,40 +67,23 @@ export function OrdersPage() {
         setSnackbar({ open: true, message: 'Erro ao deletar pedido.', severity: 'error' });
       }
     }
-  };
+  }, [fetchOrders]);
 
-  // 4. Funções para o novo modal
-  const handleViewDetails = async (id: number) => {
-    setDetailsModalOpen(true);
-    setDetailsLoading(true);
-    try {
-      // O backend já está pronto para isto
-      const response = await api.get<FullOrder>(`/orders/${id}`);
-      setSelectedOrder(response.data);
-    } catch (error) {
-      console.error("Erro ao buscar detalhes do pedido:", error);
-      setSnackbar({ open: true, message: 'Erro ao buscar detalhes do pedido.', severity: 'error' });
-      setDetailsModalOpen(false); // Fecha o modal se falhar
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
+  // Funções do Modal (agora muito mais simples)
+  const handleViewDetails = (id: number) => setSelectedOrderId(id);
+  const handleCloseDetailsModal = () => setSelectedOrderId(null);
 
-  const handleCloseDetailsModal = () => {
-    setDetailsModalOpen(false);
-    setSelectedOrder(null);
-  };
+  const handleCloseSnackbar = () => setSnackbar(null);
+  const handleNewOrder = () => navigate('/orders/new');
 
-
-  // 5. Definição das Colunas (Atualize a coluna de Ações)
-  const columns: GridColDef[] = [
-    // ... (colunas id, userName, status, total, itemCount, createdAt - sem alterações) ...
+  // 6. Use 'useMemo' para otimizar as colunas (evita recriar a cada renderização)
+  const columns = useMemo((): GridColDef<OrderSummary>[] => [
     { field: 'id', headerName: 'ID', width: 70 },
     {
       field: 'clientName',
       headerName: 'Cliente',
       width: 200,
-      valueGetter: (params) => params?.row?.client?.name || 'Pedido Interno',
+      valueGetter: (params) => params.row.client?.name || 'Pedido Interno',
     },
     {
       field: 'status',
@@ -137,7 +111,7 @@ export function OrdersPage() {
       headerName: 'Itens',
       type: 'number',
       width: 90,
-      valueGetter: (params) => params?.row?.items?.length || 0,
+      valueGetter: (params) => params.row.items?.length || 0,
     },
     {
       field: 'createdAt',
@@ -151,12 +125,11 @@ export function OrdersPage() {
     {
       field: 'actions',
       headerName: 'Ações',
-      width: 240, // Aumente a largura
+      width: 240,
       sortable: false,
       renderCell: (params) => {
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-            {/* Ícone de Ver Detalhes */}
             <IconButton
               color="default"
               size="small"
@@ -164,21 +137,16 @@ export function OrdersPage() {
             >
               <Visibility />
             </IconButton>
-            {/* Seletor de Status */}
             <Select
               value={params.row.status}
               onChange={(e: SelectChangeEvent) => handleStatusChange(params.row.id, e.target.value)}
               size="small"
-              sx={{ flexGrow: 1, mx: 1 }} // Margin (x-axis)
+              sx={{ flexGrow: 1, mx: 1 }}
             >
               <MenuItem value="PENDENTE">Pendente</MenuItem>
               <MenuItem value="CONCLUÍDO">Concluído</MenuItem>
               <MenuItem value="CANCELADO">Cancelado</MenuItem>
-              <MenuItem value="EM ANDAMENTO">Em Andamento</MenuItem>
-              <MenuItem value="SINAL PAGO">Sinal Pago</MenuItem>
-              
             </Select>
-            {/* Ícone de Deletar */}
             <IconButton
               color="error"
               size="small"
@@ -190,11 +158,11 @@ export function OrdersPage() {
         );
       },
     },
-  ];
+  ], [handleStatusChange, handleDeleteOrder]); // O 'useMemo' depende destas funções
 
   return (
     <Box sx={{ height: '100%', width: '100%' }}>
-      {/* ... (Cabeçalho da Página - sem alterações) ... */}
+      {/* --- CABEÇALHO DA PÁGINA --- */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">
           Pedidos
@@ -209,7 +177,7 @@ export function OrdersPage() {
         </Button>
       </Box>
 
-      {/* ... (Tabela de Dados - sem alterações) ... */}
+      {/* --- TABELA DE DADOS --- */}
       <Box sx={{ height: 500, width: '100%', backgroundColor: 'white' }}>
         <DataGrid
           rows={orders}
@@ -222,15 +190,14 @@ export function OrdersPage() {
         />
       </Box>
 
-      {/* 6. Adicione o novo Modal */}
+      {/* --- MODAL (Agora muito mais limpo) --- */}
       <OrderDetailsModal
-        open={detailsModalOpen}
+        open={selectedOrderId !== null}
         handleClose={handleCloseDetailsModal}
-        order={selectedOrder}
-        loading={detailsLoading}
+        orderId={selectedOrderId}
       />
 
-      {/* ... (Snackbar - sem alterações) ... */}
+      {/* --- SNACKBAR --- */}
       {snackbar && (
         <Snackbar
           open={snackbar.open}

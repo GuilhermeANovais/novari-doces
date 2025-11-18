@@ -4,44 +4,18 @@ import {
   ListItemText, Button, IconButton, CircularProgress
 } from '@mui/material';
 import { Close, Print } from '@mui/icons-material';
-import { useState } from 'react'; // 1. Importe o useState
-import api from '../api'; // 2. Importe o 'api'
+import { useState, useEffect } from 'react';
+import api from '../api';
+import { FullOrder } from '../types/entities'; // 1. Use o tipo centralizado
 
-// --- Interfaces Detalhadas ---
-// ... (Interfaces FullOrder, OrderItem, etc. - sem alterações) ...
-interface OrderItemProduct {
-  name: string;
-}
-interface OrderItem {
-  id: number;
-  quantity: number;
-  price: number;
-  product: OrderItemProduct;
-}
-interface OrderClient {
-  name: string;
-  phone?: string | null;
-  address?: string | null;
-}
-export interface FullOrder {
-  id: number;
-  status: string;
-  total: number;
-  observations?: string | null;
-  createdAt: string;
-  client?: OrderClient | null;
-  items: OrderItem[];
-}
-
-// --- Props do Componente ---
+// --- Props do Componente (Simplificadas) ---
 interface OrderDetailsModalProps {
+  orderId: number | null; // Recebe apenas o ID
   open: boolean;
   handleClose: () => void;
-  order: FullOrder | null;
-  loading: boolean;
 }
 
-// --- Estilo do Modal ---
+// --- Estilo (Sem alteração) ---
 const style = {
   position: 'absolute',
   top: '50%',
@@ -54,40 +28,59 @@ const style = {
   p: 4,
 };
 
-export function OrderDetailsModal({ open, order, handleClose, loading }: OrderDetailsModalProps) {
-  // 3. Crie um estado de 'loading' para o botão de PDF
+export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsModalProps) {
+  // 2. O Modal agora gere o seu próprio estado
+  const [order, setOrder] = useState<FullOrder | null>(null);
+  const [loading, setLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // 4. Implemente a lógica de download do PDF
+  // 3. Efeito para buscar os dados quando o ID mudar
+  useEffect(() => {
+    if (open && orderId) {
+      setLoading(true);
+      setOrder(null); // Limpa o pedido anterior
+      
+      api.get<FullOrder>(`/orders/${orderId}`)
+        .then(response => {
+          setOrder(response.data);
+        })
+        .catch(err => {
+          console.error("Erro ao buscar detalhes do pedido:", err);
+          // Opcional: mostrar um estado de erro
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [open, orderId]); // Roda sempre que o modal abrir ou o ID mudar
+
+  // 4. Lógica de PDF (Sem alteração, mas agora usa o 'order' do estado local)
   const handlePrintPdf = async () => {
     if (!order) return;
-
     setIsPrinting(true);
     try {
-      // Chame o endpoint, esperando uma 'blob' (ficheiro) como resposta
       const response = await api.get(`/orders/${order.id}/pdf`, {
         responseType: 'blob',
       });
-
-      // Crie uma URL temporária para o ficheiro 'blob'
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `pedido_${order.id}.pdf`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
       const file = new Blob([response.data], { type: 'application/pdf' });
       const fileURL = URL.createObjectURL(file);
-
-      // Crie um link 'fantasma' para forçar o download
       const link = document.createElement('a');
       link.href = fileURL;
-      link.setAttribute('download', `pedido_${order.id}.pdf`); // Nome do ficheiro
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
-      
-      link.click(); // Simule o clique
-
-      // Limpe o link e a URL
+      link.click();
       link.parentNode?.removeChild(link);
       URL.revokeObjectURL(fileURL);
-
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
-      // Futuro: Adicionar um snackbar de erro aqui
     } finally {
       setIsPrinting(false);
     }
@@ -101,14 +94,13 @@ export function OrderDetailsModal({ open, order, handleClose, loading }: OrderDe
         </Box>
       );
     }
-
     if (!order) {
       return <Typography>Não foi possível carregar os detalhes do pedido.</Typography>;
     }
-
+    // ... (O JSX para Cliente, Pedido, Itens, Total e Botão PDF é o mesmo de antes) ...
     return (
       <>
-        {/* ... (Detalhes do Cliente, Pedido, Itens, Total - sem alterações) ... */}
+        {/* Detalhes do Cliente */}
         <Typography variant="h6">Cliente</Typography>
         {order.client ? (
           <Box sx={{ pl: 2 }}>
@@ -120,12 +112,14 @@ export function OrderDetailsModal({ open, order, handleClose, loading }: OrderDe
           <Typography sx={{ pl: 2 }}>Pedido interno (sem cliente associado)</Typography>
         )}
         <Divider sx={{ my: 2 }} />
+        {/* Detalhes do Pedido */}
         <Typography variant="h6">Pedido</Typography>
         <Box sx={{ pl: 2 }}>
           <Typography><b>Status:</b> {order.status}</Typography>
           <Typography><b>Observações:</b> {order.observations || 'Nenhuma'}</Typography>
         </Box>
         <Divider sx={{ my: 2 }} />
+        {/* Itens do Pedido */}
         <Typography variant="h6">Itens Incluídos</Typography>
         <List dense sx={{ maxHeight: 200, overflow: 'auto', backgroundColor: '#f9f9f9', borderRadius: 1 }}>
           {order.items.map((item) => (
@@ -141,18 +135,18 @@ export function OrderDetailsModal({ open, order, handleClose, loading }: OrderDe
           ))}
         </List>
         <Divider sx={{ my: 2 }} />
+        {/* Total */}
         <Typography variant="h5" align="right" color="primary.dark" sx={{ fontWeight: 'bold' }}>
           Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.total)}
         </Typography>
-
-        {/* 5. Atualize o botão de PDF */}
+        {/* Botão PDF */}
         <Button
           variant="contained"
           onClick={handlePrintPdf}
           startIcon={isPrinting ? <CircularProgress size={20} color="inherit" /> : <Print />}
           sx={{ mt: 3 }}
           fullWidth
-          disabled={isPrinting} // Desabilite enquanto gera o PDF
+          disabled={isPrinting}
         >
           {isPrinting ? 'A gerar PDF...' : 'Exportar para PDF'}
         </Button>
@@ -163,10 +157,9 @@ export function OrderDetailsModal({ open, order, handleClose, loading }: OrderDe
   return (
     <Modal open={open} onClose={handleClose}>
       <Box sx={style}>
-        {/* ... (Cabeçalho do Modal - sem alterações) ... */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Typography variant="h5" component="h2" color="primary">
-            Detalhes do Pedido #{order?.id}
+            Detalhes do Pedido #{order?.id || orderId}
           </Typography>
           <IconButton onClick={handleClose}>
             <Close />
@@ -177,7 +170,6 @@ export function OrderDetailsModal({ open, order, handleClose, loading }: OrderDe
             {new Date(order.createdAt).toLocaleString('pt-BR')}
           </Typography>
         )}
-        
         {renderContent()}
       </Box>
     </Modal>

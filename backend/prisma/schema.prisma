@@ -13,6 +13,7 @@ model Client {
   name        String
   phone       String?
   address     String?
+  birthday    DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
