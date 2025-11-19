@@ -1,6 +1,7 @@
 // src/App.tsx
 import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemText, ListItemIcon, CssBaseline, ListItemButton } from '@mui/material';
-import { Home, ShoppingCart, Logout, ReceiptLong, People } from '@mui/icons-material';
+import { Home, ShoppingCart, Logout, ReceiptLong, People, CalendarMonth } from '@mui/icons-material';
+import { OrderCalendarPage } from './pages/OrderCalendarPage';
 import { Routes, Route, Link, Outlet } from 'react-router-dom';
 import { ProductsPage } from './pages/ProductsPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -65,6 +66,12 @@ function DashboardLayout() {
                 <ListItemText primary="Pedidos" />
               </ListItemButton>
             </ListItem>
+            <ListItem key="Calendário" disablePadding>
+              <ListItemButton component={Link} to="/calendar">
+                <ListItemIcon><CalendarMonth /></ListItemIcon>
+                <ListItemText primary="Calendário" />
+              </ListItemButton>
+            </ListItem>
             <ListItem key="Clientes" disablePadding>
               <ListItemButton component={Link} to="/clients">
                 <ListItemIcon>
@@ -120,6 +127,7 @@ function App() {
         <Route path="orders" element={<OrdersPage />} />
         <Route path="orders/new" element={<NewOrderPage />} />
         <Route path="clients" element={<ClientsPage />} />
+        <Route path="calendar" element={<OrderCalendarPage />} />
       </Route>
     </Routes>
   );

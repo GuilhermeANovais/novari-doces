@@ -13,7 +13,7 @@ const theme = createTheme({
     },
     // O "Branco Gelo" será o fundo
     background: {
-      default: brancoGelo,
+      default: '#FFFFFF',
       paper: '#FFFFFF', // O fundo de "cartões", menus, etc.
     },
   },

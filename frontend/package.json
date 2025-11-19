@@ -16,7 +16,9 @@
     "@mui/material": "^7.3.5",
     "@mui/x-data-grid": "^8.18.0",
     "axios": "^1.13.2",
+    "date-fns": "^4.1.0",
     "react": "^19.2.0",
+    "react-big-calendar": "^1.19.4",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.66.0",
     "react-router-dom": "^7.9.6"
@@ -25,6 +27,7 @@
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
+    "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react-swc": "^4.2.1",
     "eslint": "^9.39.1",
