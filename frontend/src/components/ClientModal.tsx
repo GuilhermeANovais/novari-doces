@@ -1,41 +1,36 @@
 // src/components/ClientModal.tsx
-import { Modal, Box, Typography, TextField, Button } from '@mui/material';
+import { Modal, Box, Typography, TextField, Button, Grid } from '@mui/material';
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { useForm, SubmitHandler } from 'react-hook-form';
 
-// Interface para os dados do formulário
 interface ClientFormInputs {
   name: string;
   phone: string;
   address: string;
+  birthday: string; // Novo campo
 }
 
-// Interface para o nosso Cliente (do backend)
 interface Client {
   id: number;
   name: string;
   phone?: string;
   address?: string;
+  birthday?: string;
 }
 
-// Tipo para a prop do snackbar
-type SnackbarSetter = (state: {
-  open: boolean;
-  message: string;
-  severity: 'success' | 'error';
-} | null) => void;
+// Callback opcional para quando um cliente é criado com sucesso (útil para o Pedido)
+type OnSuccessCallback = (newClient: Client) => void;
 
-// Props
 interface ClientModalProps {
   open: boolean;
   handleClose: () => void;
-  onSave: () => void;
+  onSave: () => void; // Recarrega a lista
   clientToEdit: Client | null;
-  setSnackbar: SnackbarSetter;
+  setSnackbar: any;
+  onSuccess?: OnSuccessCallback; // Novo callback opcional
 }
 
-// Estilo
 const style = {
   position: 'absolute',
   top: '50%',
@@ -48,47 +43,68 @@ const style = {
   p: 4,
 };
 
-export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackbar }: ClientModalProps) {
-  // Configuração do react-hook-form
+export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackbar, onSuccess }: ClientModalProps) {
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<ClientFormInputs>();
 
-  // Efeito para preencher o formulário ao editar
   useEffect(() => {
     if (clientToEdit) {
-      // Preencha os campos com os dados do cliente
       setValue('name', clientToEdit.name);
       setValue('phone', clientToEdit.phone || '');
       setValue('address', clientToEdit.address || '');
+      // Formata a data para o input type="date" (YYYY-MM-DD)
+      if (clientToEdit.birthday) {
+        const date = new Date(clientToEdit.birthday).toISOString().split('T')[0];
+        setValue('birthday', date);
+      }
     } else {
-      // Limpe os campos ao criar um novo
-      reset({ name: '', phone: '', address: '' });
+      reset({ name: '', phone: '', address: '', birthday: '' });
     }
   }, [clientToEdit, open, setValue, reset]);
 
-  // Função de envio
-  const onSubmit: SubmitHandler<ClientFormInputs> = async (data) => {
+const onSubmit: SubmitHandler<ClientFormInputs> = async (data) => {
+    // 1. Preparação robusta dos dados
+    // Se o campo estiver vazio ou for apenas espaços, envia undefined
     const clientData = {
       name: data.name,
-      phone: data.phone || null,
-      address: data.address || null,
+      phone: data.phone?.trim() || undefined,
+      address: data.address?.trim() || undefined,
+      // Só tenta converter se existir data real
+      birthday: data.birthday ? new Date(data.birthday).toISOString() : undefined,
     };
 
+    console.log("Enviando dados:", clientData); // Log para debug
+
     try {
+      let response;
       if (clientToEdit) {
-        // MODO EDITAR (PATCH)
-        await api.patch(`/clients/${clientToEdit.id}`, clientData);
+        response = await api.patch(`/clients/${clientToEdit.id}`, clientData);
       } else {
-        // MODO CRIAR (POST)
-        await api.post('/clients', clientData);
+        response = await api.post('/clients', clientData);
       }
       
-      onSave();     // Recarrega a tabela
-      handleClose();  // Fecha o modal
+      onSave(); 
+      
+      if (onSuccess && response.data) {
+        onSuccess(response.data);
+      }
+
+      handleClose();
       setSnackbar({ open: true, message: 'Cliente salvo com sucesso!', severity: 'success' });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar cliente:", error);
-      setSnackbar({ open: true, message: 'Erro ao salvar cliente.', severity: 'error' });
+      
+      // 2. Captura a mensagem de erro específica do Backend (NestJS)
+      const serverMessage = error.response?.data?.message;
+      
+      // Se for um array de erros (comum no class-validator), junta eles
+      const errorMessage = Array.isArray(serverMessage) 
+        ? serverMessage.join(', ') 
+        : (serverMessage || 'Erro desconhecido ao salvar.');
+
+      console.log("MOTIVO DO ERRO:", errorMessage); // OLHE O CONSOLE DO NAVEGADOR
+
+      setSnackbar({ open: true, message: `Erro: ${errorMessage}`, severity: 'error' });
     }
   };
 
@@ -121,6 +137,14 @@ export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackb
             fullWidth
             label="Endereço"
             {...register("address")}
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            label="Data de Aniversário"
+            type="date"
+            InputLabelProps={{ shrink: true }} // Necessário para inputs de data
+            {...register("birthday")}
           />
           <Button
             type="submit"

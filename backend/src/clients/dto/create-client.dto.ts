@@ -1,8 +1,6 @@
-// src/clients/dto/create-client.dto.ts
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
-// A linha de importação errada ('create-order-item.dto') foi removida.
+import { IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
 
-export class CreateClientDto { // A palavra 'export' foi adicionada
+export class CreateClientDto {
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -14,4 +12,8 @@ export class CreateClientDto { // A palavra 'export' foi adicionada
   @IsString()
   @IsOptional()
   address?: string;
+
+  @IsDateString()
+  @IsOptional()
+  birthday?: string;
 }
