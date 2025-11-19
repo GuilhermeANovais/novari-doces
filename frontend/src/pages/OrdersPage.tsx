@@ -5,11 +5,11 @@ import {
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { Add, Delete, Visibility } from '@mui/icons-material';
-import { useEffect, useState, useCallback, useMemo } from 'react'; // 1. Importe useCallback e useMemo
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { OrderDetailsModal } from '../components/OrderDetailsModal'; 
-import { OrderSummary } from '../types/entities'; // 2. Importe o tipo centralizado
+import { OrderSummary } from '../types/entities';
 
 type SnackbarState = {
   open: boolean;
@@ -17,17 +17,14 @@ type SnackbarState = {
   severity: 'success' | 'error';
 } | null;
 
-
 export function OrdersPage() {
-  const [orders, setOrders] = useState<OrderSummary[]>([]); // 3. Use o tipo OrderSummary
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
   const navigate = useNavigate();
 
-  // 4. Estado do Modal simplificado
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
-  // 5. Use 'useCallback' para otimizar as funções
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
@@ -39,7 +36,7 @@ export function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, []); // Array vazio = a função nunca muda
+  }, []);
 
   useEffect(() => {
     fetchOrders();
@@ -54,7 +51,7 @@ export function OrdersPage() {
       console.error("Erro ao atualizar status:", error);
       setSnackbar({ open: true, message: 'Erro ao atualizar status.', severity: 'error' });
     }
-  }, [fetchOrders]); // Depende do fetchOrders
+  }, [fetchOrders]);
 
   const handleDeleteOrder = useCallback(async (id: number) => {
     if (window.confirm('Tem certeza que deseja deletar este pedido? Esta ação não pode ser desfeita.')) {
@@ -69,21 +66,20 @@ export function OrdersPage() {
     }
   }, [fetchOrders]);
 
-  // Funções do Modal (agora muito mais simples)
   const handleViewDetails = (id: number) => setSelectedOrderId(id);
   const handleCloseDetailsModal = () => setSelectedOrderId(null);
-
   const handleCloseSnackbar = () => setSnackbar(null);
   const handleNewOrder = () => navigate('/orders/new');
 
-  // 6. Use 'useMemo' para otimizar as colunas (evita recriar a cada renderização)
+  // --- DEFINIÇÃO DAS COLUNAS CORRIGIDA (MUI v7) ---
   const columns = useMemo((): GridColDef<OrderSummary>[] => [
     { field: 'id', headerName: 'ID', width: 70 },
     {
       field: 'clientName',
       headerName: 'Cliente',
       width: 200,
-      valueGetter: (params) => params.row.client?.name || 'Pedido Interno',
+      // CORREÇÃO: Usar (value, row) em vez de (params)
+      valueGetter: (_value, row) => row.client?.name || 'Pedido Interno',
     },
     {
       field: 'status',
@@ -101,9 +97,9 @@ export function OrdersPage() {
       headerName: 'Total',
       type: 'number',
       width: 120,
-      valueFormatter: (params) => {
-        if (params.value == null) return ''; 
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(params.value);
+      valueFormatter: (value) => {
+        if (value == null) return ''; 
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
       },
     },
     {
@@ -111,15 +107,16 @@ export function OrdersPage() {
       headerName: 'Itens',
       type: 'number',
       width: 90,
-      valueGetter: (params) => params.row.items?.length || 0,
+      // CORREÇÃO: Usar (value, row) em vez de (params)
+      valueGetter: (_value, row) => row.items?.length || 0,
     },
     {
       field: 'createdAt',
       headerName: 'Data',
       width: 180,
-      valueFormatter: (params) => {
-        if (params.value == null) return '';
-        return new Date(params.value).toLocaleString('pt-BR');
+      valueFormatter: (value) => {
+        if (value == null) return '';
+        return new Date(value).toLocaleString('pt-BR');
       },
     },
     {
@@ -158,11 +155,10 @@ export function OrdersPage() {
         );
       },
     },
-  ], [handleStatusChange, handleDeleteOrder]); // O 'useMemo' depende destas funções
+  ], [handleStatusChange, handleDeleteOrder]);
 
   return (
     <Box sx={{ height: '100%', width: '100%' }}>
-      {/* --- CABEÇALHO DA PÁGINA --- */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">
           Pedidos
@@ -177,7 +173,6 @@ export function OrdersPage() {
         </Button>
       </Box>
 
-      {/* --- TABELA DE DADOS --- */}
       <Box sx={{ height: 500, width: '100%', backgroundColor: 'white' }}>
         <DataGrid
           rows={orders}
@@ -190,14 +185,12 @@ export function OrdersPage() {
         />
       </Box>
 
-      {/* --- MODAL (Agora muito mais limpo) --- */}
       <OrderDetailsModal
         open={selectedOrderId !== null}
         handleClose={handleCloseDetailsModal}
         orderId={selectedOrderId}
       />
 
-      {/* --- SNACKBAR --- */}
       {snackbar && (
         <Snackbar
           open={snackbar.open}
