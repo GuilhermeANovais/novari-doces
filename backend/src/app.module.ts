@@ -9,6 +9,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { OrdersModule } from './orders/orders.module';
 import { ClientsModule } from './clients/clients.module';
 import { PdfService } from './pdf/pdf.service';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PdfService } from './pdf/pdf.service';
     DashboardModule,
     OrdersModule,
     ClientsModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService, PdfService],

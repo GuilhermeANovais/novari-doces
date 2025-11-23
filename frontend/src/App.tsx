@@ -1,6 +1,6 @@
 // src/App.tsx
 import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemText, ListItemIcon, CssBaseline, ListItemButton } from '@mui/material';
-import { Home, ShoppingCart, Logout, ReceiptLong, People, CalendarMonth } from '@mui/icons-material';
+import { Home, ShoppingCart, Logout, ReceiptLong, People, CalendarMonth, Security } from '@mui/icons-material';
 import { OrderCalendarPage } from './pages/OrderCalendarPage';
 import { Routes, Route, Link, Outlet } from 'react-router-dom';
 import { ProductsPage } from './pages/ProductsPage';
@@ -12,6 +12,7 @@ import { useAuth } from './contexts/AuthContext';
 import { OrdersPage } from './pages/OrdersPage';
 import { NewOrderPage } from './pages/NewOrderPage';
 import { ClientsPage } from './pages/ClientsPage';
+import { AuditPage } from './pages/AuditPage';
 
 const drawerWidth = 240;
 
@@ -80,6 +81,14 @@ function DashboardLayout() {
                 <ListItemText primary="Clientes" />
               </ListItemButton>
             </ListItem>
+            <ListItem key="Auditoria" disablePadding>
+              <ListItemButton component={Link} to="/audit">
+                <ListItemIcon>
+                  <People />
+                </ListItemIcon>
+                <ListItemText primary="Auditoria" />
+              </ListItemButton>
+            </ListItem>
           </List>
           
           {/* Lista de Ações (Sair) */}
@@ -128,6 +137,7 @@ function App() {
         <Route path="orders/new" element={<NewOrderPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="calendar" element={<OrderCalendarPage />} />
+        <Route path="audit" element={<AuditPage />} />
       </Route>
     </Routes>
   );
