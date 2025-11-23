@@ -14,12 +14,30 @@ export class DashboardService {
     const salesData = await this.getSalesChartData();
     const topProducts = await this.getTopProductsData();
 
+    const today = new Date();
+    const next48Hours = new Date();
+    next48Hours.setDate(today.getDate() + 2);
+
+    const upcomingOrders = await this.prisma.order.findMany({
+      where: {
+        status: 'PENDENTE',
+        deliveryDate: {
+          gte: today,
+          lte: next48Hours,
+        },
+      },
+      include: {
+        client: { select: { name: true } },
+      },
+    });
+
     // Retorna os dados em um objeto
     return {
       productCount,
       userCount,
       salesData,
       topProducts,
+      upcomingOrders,
     };
   }
 

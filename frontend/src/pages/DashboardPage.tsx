@@ -1,13 +1,23 @@
 // src/pages/DashboardPage.tsx
-import { Box, Typography, Grid, Paper, CircularProgress, useTheme } from '@mui/material';
+import { Box, Typography, Grid, Paper, CircularProgress, useTheme, Alert, AlertTitle, List, ListItem, ListItemText, Chip } from '@mui/material';
+import { Warning } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
 import api from '../api';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 // --- Interfaces ---
+
+interface UpcomingOrder {
+  id: number;
+  deliveryDate: string;
+  client?: { name: string };
+  total: number;
+}
+
 interface SalesData {
   date: string;
   amount: number;
@@ -23,6 +33,7 @@ interface Stats {
   userCount: number;
   salesData: SalesData[];
   topProducts: TopProduct[];
+  upcomingOrders: UpcomingOrder[];
 }
 
 interface StatCardProps {
@@ -60,7 +71,8 @@ function StatCard({ title, value, color }: StatCardProps) {
 export function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const theme = useTheme(); // Para usar as cores do tema se quiser
+  const navigate = useNavigate();
+
 
   useEffect(() => {
     async function fetchStats() {
@@ -93,16 +105,59 @@ export function DashboardPage() {
         Visão Geral
       </Typography>
 
+      {stats?.upcomingOrders && stats.upcomingOrders.length > 0 && (
+        <Paper elevation={3} sx={{ mb: 4, overflow: 'hidden', borderLeft: '6px solid #ed6c02' }}>
+          <Alert 
+            severity="warning" 
+            icon={<Warning fontSize="inherit" />}
+            sx={{ backgroundColor: '#fff3e0' }} // Fundo laranja claro
+          >
+            <AlertTitle sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+              Atenção: {stats.upcomingOrders.length} Pedido(s) para entregar em breve!
+            </AlertTitle>
+            <List dense>
+              {stats.upcomingOrders.map((order) => (
+                <ListItem 
+                  key={order.id}
+                  button
+                  onClick={() => navigate('/calendar')} // Leva ao calendário (ou /orders)
+                  sx={{ 
+                    borderBottom: '1px solid rgba(0,0,0,0.05)',
+                    '&:last-child': { borderBottom: 'none' }
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Typography variant="subtitle2">
+                        <b>Pedido #{order.id}</b> - {order.client?.name || 'Cliente Balcão'}
+                      </Typography>
+                    }
+                    secondary={`Entrega: ${new Date(order.deliveryDate).toLocaleString('pt-BR')}`}
+                  />
+                  <Chip 
+                    label="Pendente" 
+                    color="warning" 
+                    size="small" 
+                    variant="outlined" 
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Alert>
+        </Paper>
+      )}
+
       {/* --- CARDS SUPERIORES --- */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* ... (Cards existentes: Produtos, Usuários, Vendas) ... */}
         <StatCard title="Produtos Cadastrados" value={stats?.productCount || 0} color="#1976d2" />
         <StatCard title="Total de Usuários" value={stats?.userCount || 0} color="#ed6c02" />
+        <StatCard title="Vendas (7 dias)" value={`R$ ${totalSales.toFixed(2)}`} color="#2e7d32" />
         <StatCard 
-          title="Vendas (7 dias)" 
-          value={`R$ ${totalSales.toFixed(2)}`} 
-          color="#2e7d32" 
+          title="Entregas Urgentes" 
+          value={stats?.upcomingOrders.length || 0} 
+          color="#d32f2f" 
         />
-        <StatCard title="Pedidos Ativos" value="-" color="#9c27b0" /> {/* Placeholder */}
       </Grid>
 
       {/* --- GRÁFICOS --- */}
