@@ -16,4 +16,8 @@ export class CreateClientDto {
   @IsDateString()
   @IsOptional()
   birthday?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

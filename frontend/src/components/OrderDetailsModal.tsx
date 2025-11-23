@@ -1,21 +1,18 @@
-// src/components/OrderDetailsModal.tsx
 import {
   Modal, Box, Typography, Divider, List, ListItem,
-  ListItemText, Button, IconButton, CircularProgress
+  ListItemText, Button, IconButton, CircularProgress, Tooltip
 } from '@mui/material';
-import { Close, Print } from '@mui/icons-material';
+import { Close, Print, WhatsApp } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { FullOrder } from '../types/entities'; // 1. Use o tipo centralizado
+import { FullOrder } from '../types/entities'; // Certifique-se que este arquivo existe
 
-// --- Props do Componente (Simplificadas) ---
 interface OrderDetailsModalProps {
-  orderId: number | null; // Recebe apenas o ID
+  orderId: number | null;
   open: boolean;
   handleClose: () => void;
 }
 
-// --- Estilo (Sem alteração) ---
 const style = {
   position: 'absolute',
   top: '50%',
@@ -26,35 +23,35 @@ const style = {
   border: '2px solid #000',
   boxShadow: 24,
   p: 4,
+  maxHeight: '90vh', // Garante que não ultrapasse a altura da tela
+  overflowY: 'auto', // Adiciona scroll se necessário
 };
 
 export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsModalProps) {
-  // 2. O Modal agora gere o seu próprio estado
   const [order, setOrder] = useState<FullOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // 3. Efeito para buscar os dados quando o ID mudar
+  // Busca os dados sempre que o ID mudar ou o modal abrir
   useEffect(() => {
     if (open && orderId) {
       setLoading(true);
-      setOrder(null); // Limpa o pedido anterior
+      setOrder(null);
       
       api.get<FullOrder>(`/orders/${orderId}`)
-        .then(response => {
-          setOrder(response.data);
+        .then(res => {
+          setOrder(res.data);
         })
         .catch(err => {
           console.error("Erro ao buscar detalhes do pedido:", err);
-          // Opcional: mostrar um estado de erro
         })
         .finally(() => {
           setLoading(false);
         });
     }
-  }, [open, orderId]); // Roda sempre que o modal abrir ou o ID mudar
+  }, [open, orderId]);
 
-  // 4. Lógica de PDF (Sem alteração, mas agora usa o 'order' do estado local)
+  // --- Lógica de PDF ---
   const handlePrintPdf = async () => {
     if (!order) return;
     setIsPrinting(true);
@@ -62,23 +59,29 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
       const response = await api.get(`/orders/${order.id}/pdf`, {
         responseType: 'blob',
       });
+
       const contentDisposition = response.headers['content-disposition'];
       let filename = `pedido_${order.id}.pdf`;
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
         if (filenameMatch && filenameMatch[1]) {
           filename = filenameMatch[1];
         }
       }
+
       const file = new Blob([response.data], { type: 'application/pdf' });
       const fileURL = URL.createObjectURL(file);
       const link = document.createElement('a');
       link.href = fileURL;
       link.setAttribute('download', filename);
       document.body.appendChild(link);
+      
       link.click();
+
       link.parentNode?.removeChild(link);
       URL.revokeObjectURL(fileURL);
+
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
     } finally {
@@ -86,60 +89,120 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
     }
   };
 
+  // --- Lógica de WhatsApp ---
+  const handleWhatsApp = () => {
+    if (!order || !order.client || !order.client.phone) return;
+
+    // Limpa o telefone (remove parênteses, traços, espaços)
+    const phone = order.client.phone.replace(/\D/g, '');
+    
+    // Mensagem personalizada baseada no status
+    let message = `Olá ${order.client.name}, aqui é da Confeitaria Heaven! 🍰\n`;
+    message += `Estamos entrando em contato sobre o pedido #${order.id}.\n\n`;
+
+    if (order.status === 'PENDENTE') {
+      message += `Confirmamos o recebimento! Valor total: R$ ${order.total.toFixed(2)}.`;
+      if (order.deliveryDate) {
+        message += `\nPrevisão de entrega/retirada: ${new Date(order.deliveryDate).toLocaleString('pt-BR')}.`;
+      }
+    } else if (order.status === 'CONCLUÍDO') {
+      message += `O seu pedido está pronto! 😋 Esperamos que goste.`;
+    } else if (order.status === 'CANCELADO') {
+      message += `O seu pedido foi cancelado. Caso tenha dúvidas, por favor responda a esta mensagem.`;
+    }
+
+    // Abre o link do WhatsApp Web/App
+    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
           <CircularProgress />
         </Box>
       );
     }
+
     if (!order) {
       return <Typography>Não foi possível carregar os detalhes do pedido.</Typography>;
     }
-    // ... (O JSX para Cliente, Pedido, Itens, Total e Botão PDF é o mesmo de antes) ...
+
     return (
       <>
-        {/* Detalhes do Cliente */}
-        <Typography variant="h6">Cliente</Typography>
+        {/* Cabeçalho Cliente + WhatsApp */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Typography variant="h6">Cliente</Typography>
+          
+          {/* Botão WhatsApp só aparece se tiver telefone */}
+          {order.client?.phone && (
+            <Tooltip title="Enviar mensagem no WhatsApp">
+              <Button 
+                variant="outlined" 
+                color="success" 
+                size="small" 
+                startIcon={<WhatsApp />}
+                onClick={handleWhatsApp}
+              >
+                WhatsApp
+              </Button>
+            </Tooltip>
+          )}
+        </Box>
+
         {order.client ? (
-          <Box sx={{ pl: 2 }}>
+          <Box sx={{ pl: 2, mt: 1 }}>
             <Typography><b>Nome:</b> {order.client.name}</Typography>
             <Typography><b>Telefone:</b> {order.client.phone || 'N/A'}</Typography>
             <Typography><b>Endereço:</b> {order.client.address || 'N/A'}</Typography>
           </Box>
         ) : (
-          <Typography sx={{ pl: 2 }}>Pedido interno (sem cliente associado)</Typography>
+          <Typography sx={{ pl: 2, fontStyle: 'italic' }}>Pedido interno (sem cliente associado)</Typography>
         )}
+
         <Divider sx={{ my: 2 }} />
+
         {/* Detalhes do Pedido */}
         <Typography variant="h6">Pedido</Typography>
         <Box sx={{ pl: 2 }}>
           <Typography><b>Status:</b> {order.status}</Typography>
+          
+          {order.deliveryDate && (
+             <Typography>
+               <b>Data de Entrega:</b> {new Date(order.deliveryDate).toLocaleString('pt-BR')}
+             </Typography>
+          )}
+          
           <Typography><b>Observações:</b> {order.observations || 'Nenhuma'}</Typography>
         </Box>
+
         <Divider sx={{ my: 2 }} />
-        {/* Itens do Pedido */}
+
+        {/* Lista de Itens */}
         <Typography variant="h6">Itens Incluídos</Typography>
-        <List dense sx={{ maxHeight: 200, overflow: 'auto', backgroundColor: '#f9f9f9', borderRadius: 1 }}>
+        <List dense sx={{ maxHeight: 200, overflow: 'auto', bgcolor: '#f9f9f9', borderRadius: 1, mt: 1 }}>
           {order.items.map((item) => (
             <ListItem key={item.id} divider>
               <ListItemText
                 primary={`${item.quantity}x ${item.product.name}`}
-                secondary={`R$ ${item.price.toFixed(2)} (unid.)`}
+                secondary={`R$ ${item.price.toFixed(2)} un.`}
               />
-              <Typography variant="body2">
-                <b>Subtotal: R$ {(item.quantity * item.price).toFixed(2)}</b>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                R$ {(item.quantity * item.price).toFixed(2)}
               </Typography>
             </ListItem>
           ))}
         </List>
+
         <Divider sx={{ my: 2 }} />
+
         {/* Total */}
         <Typography variant="h5" align="right" color="primary.dark" sx={{ fontWeight: 'bold' }}>
           Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.total)}
         </Typography>
-        {/* Botão PDF */}
+
+        {/* Botão Exportar PDF */}
         <Button
           variant="contained"
           onClick={handlePrintPdf}
@@ -148,7 +211,7 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
           fullWidth
           disabled={isPrinting}
         >
-          {isPrinting ? 'A gerar PDF...' : 'Exportar para PDF'}
+          {isPrinting ? 'Gerando PDF...' : 'Exportar para PDF'}
         </Button>
       </>
     );
@@ -165,11 +228,13 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
             <Close />
           </IconButton>
         </Box>
+        
         {order && (
           <Typography variant="body2" color="textSecondary" gutterBottom>
-            {new Date(order.createdAt).toLocaleString('pt-BR')}
+            Criado em: {new Date(order.createdAt).toLocaleString('pt-BR')}
           </Typography>
         )}
+        
         {renderContent()}
       </Box>
     </Modal>
