@@ -2,20 +2,23 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { AuditService } from 'src/audit/audit.service'; // Importação do Serviço de Auditoria
+import { AuditService } from 'src/audit/audit.service';
+// Importamos o Enum do Prisma para garantir a tipagem correta
+import { PaymentMethod } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService // Injeção do Serviço de Auditoria
+    private auditService: AuditService
   ) {}
 
   /**
    * Cria um novo Pedido
    */
   async create(createOrderDto: CreateOrderDto, userId: number) {
-    const { items, clientId, observations, deliveryDate } = createOrderDto;
+    // Desestrutura todos os campos, incluindo o novo paymentMethod
+    const { items, clientId, observations, deliveryDate, paymentMethod } = createOrderDto;
 
     // 1. Validação dos Produtos
     const productIds = items.map((item) => item.productId);
@@ -64,6 +67,8 @@ export class OrdersService {
           observations: observations,
           clientId: clientId,
           deliveryDate: deliveryDate,
+          // Salva o método de pagamento (cast para o tipo do Prisma)
+          paymentMethod: paymentMethod as PaymentMethod,
         },
       });
 
@@ -80,14 +85,14 @@ export class OrdersService {
       });
     });
 
-    // CORREÇÃO: Verifica se newOrder existe antes de acessar .id
+    // Log de Auditoria da criação
     if (newOrder) {
       await this.auditService.createLog(
         userId,
         'CREATE',
         'Order',
         newOrder.id,
-        `Pedido criado com total R$ ${total}`,
+        `Pedido criado. Total: R$ ${total}. Pagamento: ${paymentMethod || 'CASH'}`
       );
     }
 
@@ -135,6 +140,7 @@ export class OrdersService {
         clientId: updateOrderDto.clientId,
         deliveryDate: updateOrderDto.deliveryDate,
         observations: updateOrderDto.observations,
+        // Se quiser permitir alterar o pagamento depois, adicione paymentMethod aqui também
       },
     });
 
@@ -170,7 +176,7 @@ export class OrdersService {
       'DELETE',
       'Order',
       id,
-      `Pedido de R$ ${orderToDelete?.total} deletado.`
+      `Pedido de R$ ${orderToDelete?.total} deletado.`,
     );
 
     return { message: 'Pedido deletado com sucesso' };

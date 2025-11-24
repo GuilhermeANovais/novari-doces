@@ -224,7 +224,7 @@ export function DashboardPage() {
         
         {/* 1. Gráfico de Linha (Ocupa 8 colunas - Mais largo) */}
         <Grid item xs={12} md={8}>
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: 1000, border: '1px solid #e0e0e0', borderRadius: 3 }}>
+          <Paper elevation={0} sx={{ p: 3, height: 400, width: 800, border: '1px solid #e0e0e0', borderRadius: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
               Faturamento (Últimos 7 dias)
             </Typography>
@@ -266,7 +266,7 @@ export function DashboardPage() {
 
         {/* 2. Gráfico de Pizza (Ocupa 4 colunas - Menor e Compacto) */}
         <Grid item xs={12} md={4}>
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: 800, border: '1px solid #e0e0e0', borderRadius: 3 }}>
+          <Paper elevation={0} sx={{ p: 3, height: 400, width: 700, border: '1px solid #e0e0e0', borderRadius: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
               Produtos com mais saída
             </Typography>

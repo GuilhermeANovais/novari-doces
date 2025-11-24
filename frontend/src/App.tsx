@@ -1,8 +1,8 @@
 import { 
   Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, 
-  ListItemText, ListItemIcon, CssBaseline, ListItemButton, useTheme 
+  ListItemText, ListItemIcon, CssBaseline, ListItemButton
 } from '@mui/material';
-// 1. Ícones da Lucide
+// 1. Adicionei o ícone 'History'
 import { 
   LayoutDashboard, 
   ShoppingBag, 
@@ -10,7 +10,8 @@ import {
   CalendarDays, 
   Users, 
   LogOut,
-  ChefHat
+  ChefHat,
+  History 
 } from 'lucide-react';
 import { Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -25,30 +26,25 @@ import { OrdersPage } from './pages/OrdersPage';
 import { NewOrderPage } from './pages/NewOrderPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { OrderCalendarPage } from './pages/OrderCalendarPage';
+import { AuditPage } from './pages/AuditPage'; // 2. Trouxe de volta a AuditPage
 
 const drawerWidth = 240;
 
-/**
- * Componente do Layout Principal (Dashboard com menu lateral)
- */
 function DashboardLayout() {
   const auth = useAuth();
-  const location = useLocation(); // Para saber em qual página estamos
-  const theme = useTheme();
+  const location = useLocation();
 
-  // Função auxiliar para verificar se o link está ativo
   const isActive = (path: string) => {
     if (path === '/' && location.pathname === '/') return true;
     if (path !== '/' && location.pathname.startsWith(path)) return true;
     return false;
   };
 
-  // Estilo base para os botões do menu
   const menuItemStyle = (path: string) => ({
     borderRadius: 2,
-    mx: 1, // Margem horizontal para não colar na borda
-    mb: 0.5, // Espaço entre itens
-    backgroundColor: isActive(path) ? '#e8f5e9' : 'transparent', // Verde claro se ativo
+    mx: 1, 
+    mb: 0.5, 
+    backgroundColor: isActive(path) ? '#e8f5e9' : 'transparent',
     color: isActive(path) ? '#1B5E20' : 'inherit',
     '&:hover': {
       backgroundColor: isActive(path) ? '#c8e6c9' : '#f5f5f5',
@@ -64,15 +60,14 @@ function DashboardLayout() {
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <CssBaseline />
       
-      {/* Barra Superior (Flat Style) */}
       <AppBar
         position="fixed"
         sx={{ 
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: 'white', // Fundo Branco
-          color: '#1a1a1a', // Texto Escuro
-          boxShadow: 'none', // Sem sombra
-          borderBottom: '1px solid #e0e0e0' // Borda sutil
+          backgroundColor: 'white', 
+          color: '#1a1a1a', 
+          boxShadow: 'none', 
+          borderBottom: '1px solid #e0e0e0' 
         }}
       >
         <Toolbar>
@@ -93,7 +88,6 @@ function DashboardLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* Menu Lateral (Sidebar) */}
       <Drawer
         variant="permanent"
         sx={{
@@ -102,16 +96,15 @@ function DashboardLayout() {
           [`& .MuiDrawer-paper`]: { 
             width: drawerWidth, 
             boxSizing: 'border-box',
-            borderRight: '1px solid #e0e0e0', // Borda sutil
+            borderRight: '1px solid #e0e0e0',
             backgroundColor: '#fff'
           },
         }}
       >
-        <Toolbar /> {/* Espaçador para o AppBar */}
+        <Toolbar /> 
         
         <Box sx={{ overflow: 'auto', display: 'flex', flexDirection: 'column', height: '100%', pt: 2 }}>
           
-          {/* Lista de navegação principal */}
           <List>
             
             {/* Dashboard */}
@@ -179,9 +172,22 @@ function DashboardLayout() {
               </ListItemButton>
             </ListItem>
 
+            {/* 3. Auditoria (Link Restaurado) */}
+            <ListItem key="Auditoria" disablePadding>
+              <ListItemButton component={Link} to="/audit" sx={menuItemStyle('/audit')}>
+                <ListItemIcon sx={iconStyle('/audit')}>
+                  <History size={20} strokeWidth={1.5} />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Auditoria" 
+                  primaryTypographyProps={{ fontWeight: isActive('/audit') ? 'bold' : 'medium', fontSize: '0.9rem' }} 
+                />
+              </ListItemButton>
+            </ListItem>
+
           </List>
           
-          {/* Botão Sair (no fundo do menu) */}
+          {/* Botão Sair */}
           <List sx={{ marginTop: 'auto', mb: 1 }}>
             <ListItem key="Sair" disablePadding>
               <ListItemButton 
@@ -189,7 +195,7 @@ function DashboardLayout() {
                 sx={{ 
                   borderRadius: 2, 
                   mx: 1,
-                  color: '#d32f2f', // Vermelho para sair
+                  color: '#d32f2f', 
                   '&:hover': { backgroundColor: '#ffebee' }
                 }}
               >
@@ -204,7 +210,6 @@ function DashboardLayout() {
         </Box>
       </Drawer>
 
-      {/* Área de Conteúdo Principal */}
       <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
         <Outlet /> 
@@ -213,17 +218,12 @@ function DashboardLayout() {
   );
 }
 
-/**
- * Componente Principal do App (Roteamento)
- */
 function App() {
   return (
     <Routes>
-      {/* Rotas Públicas */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       
-      {/* Rotas Protegidas (Dentro do Layout) */}
       <Route 
         path="/" 
         element={
@@ -238,6 +238,7 @@ function App() {
         <Route path="orders/new" element={<NewOrderPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="calendar" element={<OrderCalendarPage />} />
+        <Route path="audit" element={<AuditPage />} /> {/* 4. Rota Restaurada */}
       </Route>
     </Routes>
   );

@@ -2,7 +2,7 @@
 import { createTheme } from '@mui/material/styles';
 
 // Nossas cores
-const verdeEscuro = '#8f1e85ff'; // Um verde escuro forte
+const verdeEscuro = '#1B5E20'; // Um verde escuro forte
 const brancoGelo = '#F5F5F5'; // Um "off-white" / gelo
 
 const theme = createTheme({

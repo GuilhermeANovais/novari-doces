@@ -9,7 +9,14 @@ import {
   IsString,
   IsDateString
 } from 'class-validator';
-import { CreateOrderItemDto } from './create-order-item.dto'; // (Esta importação está correta aqui)
+import { CreateOrderItemDto } from './create-order-item.dto';
+import { IsEnum } from 'class-validator'
+
+export enum PaymentMethodDto {
+  PIX = 'PIX',
+  CASH = 'DINHEIRO',
+  CARD = 'CARTÃO',
+}
 
 export class CreateOrderDto {
   @IsArray()
@@ -30,4 +37,8 @@ export class CreateOrderDto {
   @IsDateString()
   @IsOptional()
   deliveryDate?: string;
+
+  @IsEnum(PaymentMethodDto)
+  @IsOptional()
+  paymentMethod?: PaymentMethodDto;
 }

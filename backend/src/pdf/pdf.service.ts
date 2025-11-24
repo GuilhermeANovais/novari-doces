@@ -66,11 +66,11 @@ export class PdfService {
         <head>
           <meta charset="UTF-8">
           <style>
-            body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 40px; color: #333; font-size: 14px; }
+            body { font-family: 'Inter', sans-serif; margin: 40px; color: #333; font-size: 14px; }
             
             /* Cabeçalho */
-            h1 { color: #dd37d5ff; margin-bottom: 5px; font-size: 24px; }
-            .header { margin-bottom: 30px; border-bottom: 2px solid #dd37d5ff; padding-bottom: 15px; }
+            h1 { color: #1B5E20; margin-bottom: 5px; font-size: 24px; }
+            .header { margin-bottom: 30px; border-bottom: 2px solid #1B5E20; padding-bottom: 15px; }
             .header p { margin: 5px 0; font-size: 14px; }
             
             /* Caixas de Detalhes (Cliente e Obs) */
@@ -79,21 +79,21 @@ export class PdfService {
               padding: 15px; 
               border-radius: 8px; 
               margin-bottom: 20px;
-              border-left: 5px solid #dd37d5ff;
+              border-left: 5px solid #1B5E20;
             }
-            .details-box h3 { margin-top: 0; margin-bottom: 10px; color: #dd37d5ff; font-size: 16px; }
+            .details-box h3 { margin-top: 0; margin-bottom: 10px; color: #1B5E20; font-size: 16px; }
             .details-box p { margin: 5px 0; }
 
             /* Tabela de Itens */
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
-            th { background-color: #dd37d5ff; color: white; font-weight: bold; }
+            th { background-color: #1B5E20; color: white; font-weight: bold; }
             tr:nth-child(even) { background-color: #f2f2f2; }
             
             /* Rodapé e Totais */
             .total-section { margin-top: 30px; text-align: right; }
             .total-label { font-size: 1.4em; margin-right: 15px; }
-            .total-value { font-size: 1.8em; font-weight: bold; color: #dd37d5ff; }
+            .total-value { font-size: 1.8em; font-weight: bold; color: #1B5E20; }
             
             .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 20px;}
           </style>

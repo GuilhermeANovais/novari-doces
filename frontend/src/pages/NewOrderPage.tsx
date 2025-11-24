@@ -1,11 +1,9 @@
-// src/pages/NewOrderPage.tsx
 import {
   Box, Typography, Grid, Paper, List, ListItem, ListItemText, Button,
   CircularProgress, Divider, IconButton, Snackbar, Alert,
   TextField, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Tooltip
 } from '@mui/material';
-// 1. Novos ícones da Lucide
-import { Plus, Minus, Trash2, UserPlus } from 'lucide-react';
+import { Plus, Minus, Trash2, UserPlus, CreditCard } from 'lucide-react'; // Adicionado CreditCard
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -45,6 +43,7 @@ export function NewOrderPage() {
   const [selectedClientId, setSelectedClientId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('CASH'); // Novo Estado
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
@@ -52,7 +51,6 @@ export function NewOrderPage() {
 
   const navigate = useNavigate();
 
-  // --- Busca de Dados ---
   const fetchClients = useCallback(async () => {
     try {
       const clientResponse = await api.get('/clients');
@@ -79,7 +77,6 @@ export function NewOrderPage() {
     init();
   }, [fetchClients]);
 
-  // --- Lógica do Carrinho ---
   const handleAddToCart = (productToAdd: Product) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productToAdd.id);
@@ -120,7 +117,6 @@ export function NewOrderPage() {
     return cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   }, [cart]);
   
-  // --- Lógica de Finalização ---
   const handleFinishOrder = async () => {
     setIsSubmitting(true);
     setSnackbar(null);
@@ -133,15 +129,19 @@ export function NewOrderPage() {
       clientId: selectedClientId || undefined,
       observations: observations || undefined,
       deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : undefined,
+      paymentMethod: paymentMethod, // Envia o método de pagamento
     };
 
     try {
       await api.post('/orders', orderData);
+      
       setSnackbar({ open: true, message: 'Pedido criado com sucesso!', severity: 'success' });
+      
       setCart([]);
       setObservations('');
       setSelectedClientId('');
       setDeliveryDate('');
+      setPaymentMethod('CASH'); // Reseta para o padrão
       
       setTimeout(() => {
         navigate('/orders');
@@ -162,7 +162,6 @@ export function NewOrderPage() {
 
   const handleCloseSnackbar = () => setSnackbar(null);
 
-  // --- JSX ---
   return (
     <Box>
       <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: '#1a1a1a' }}>
@@ -170,7 +169,6 @@ export function NewOrderPage() {
       </Typography>
       
       <Grid container spacing={3}>
-        {/* Coluna Esquerda: Produtos */}
         <Grid item xs={12} md={7}>
           <Paper 
             elevation={0} 
@@ -182,7 +180,7 @@ export function NewOrderPage() {
             {loadingProducts ? (
               <CircularProgress />
             ) : (
-              <List sx={{ maxHeight: '65vh', overflow: 'auto' }}>
+              <List sx={{ maxHeight: '65vh', width: '52vh', overflow: 'auto' }}>
                 {products.map((product) => (
                   <ListItem 
                     key={product.id}
@@ -191,7 +189,7 @@ export function NewOrderPage() {
                       <Button 
                         variant="contained" 
                         size="small"
-                        startIcon={<Plus size={16} />} // Ícone Plus
+                        startIcon={<Plus size={16} />}
                         onClick={() => handleAddToCart(product)}
                         sx={{ borderRadius: 2, textTransform: 'none' }}
                       >
@@ -211,7 +209,6 @@ export function NewOrderPage() {
           </Paper>
         </Grid>
 
-        {/* Coluna Direita: Detalhes */}
         <Grid item xs={12} md={5}>
           <Paper 
             elevation={0} 
@@ -222,7 +219,6 @@ export function NewOrderPage() {
             </Typography>
             <Divider sx={{ mb: 3 }} />
 
-            {/* Seleção de Cliente + Botão Novo */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
               <FormControl fullWidth>
                 <InputLabel id="client-select-label">Cliente (Opcional)</InputLabel>
@@ -250,7 +246,6 @@ export function NewOrderPage() {
                   sx={{ height: '56px', minWidth: '56px', borderRadius: 1 }}
                   onClick={() => setClientModalOpen(true)}
                 >
-                  {/* Ícone UserPlus */}
                   <UserPlus size={24} strokeWidth={1.5} />
                 </Button>
               </Tooltip>
@@ -265,6 +260,26 @@ export function NewOrderPage() {
               value={deliveryDate}
               onChange={(e) => setDeliveryDate(e.target.value)}
             />
+
+            {/* CAMPO DE MÉTODO DE PAGAMENTO */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="payment-method-label">Forma de Pagamento</InputLabel>
+              <Select
+                labelId="payment-method-label"
+                value={paymentMethod}
+                label="Forma de Pagamento"
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                startAdornment={
+                  <Box sx={{ mr: 1, color: 'action.active', display: 'flex', alignItems: 'center' }}>
+                    <CreditCard size={20} />
+                  </Box>
+                }
+              >
+                <MenuItem value="CASH">Dinheiro</MenuItem>
+                <MenuItem value="PIX">PIX</MenuItem>
+                <MenuItem value="CARD">Cartão</MenuItem>
+              </Select>
+            </FormControl>
 
             <TextField
               label="Observações (Opcional)"
@@ -284,7 +299,7 @@ export function NewOrderPage() {
             <List sx={{ maxHeight: '30vh', overflow: 'auto' }}>
               {cart.length === 0 ? (
                 <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary', py: 2, textAlign: 'center' }}>
-                  O carrinho está vazio. Adicione produtos ao lado.
+                  O carrinho está vazio.
                 </Typography>
               ) : (
                 cart.map((item) => (
@@ -293,7 +308,6 @@ export function NewOrderPage() {
                       primary={item.name}
                       secondary={`Qtd: ${item.quantity} x R$ ${item.price.toFixed(2)}`}
                     />
-                    {/* Controles do Carrinho */}
                     <IconButton size="small" onClick={() => handleAddToCart(item)}>
                       <Plus size={16} />
                     </IconButton>
