@@ -1,7 +1,10 @@
+// src/components/ClientModal.tsx
 import { 
   Modal, Box, Typography, TextField, Button, Divider, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, IconButton, useTheme
 } from '@mui/material';
+// 1. Importe o ícone X da Lucide
+import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { useForm, SubmitHandler } from 'react-hook-form';
@@ -12,7 +15,7 @@ interface ClientFormInputs {
   phone: string;
   address: string;
   birthday: string;
-  notes: string; // Adicionamos notes aqui também
+  notes: string;
 }
 
 interface Client {
@@ -24,7 +27,6 @@ interface Client {
   notes?: string;
 }
 
-// Interface para o Histórico que vem do backend
 interface ClientWithOrders extends Client {
   orders: {
     id: number;
@@ -53,28 +55,29 @@ interface ClientModalProps {
   onSuccess?: (newClient: Client) => void;
 }
 
-const style = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: { xs: '90%', sm: 600 }, // Um pouco mais largo para caber a tabela
-  bgcolor: 'background.paper',
-  border: '2px solid #000',
-  boxShadow: 24,
-  p: 4,
-  maxHeight: '90vh',
-  overflowY: 'auto',
-};
-
 export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackbar, onSuccess }: ClientModalProps) {
+  const theme = useTheme();
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<ClientFormInputs>();
   const [history, setHistory] = useState<ClientWithOrders | null>(null);
 
-  // Efeito para preencher o formulário e buscar histórico
+  // Estilo atualizado para o Modal (Sombra suave, bordas arredondadas)
+  const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: { xs: '90%', sm: 600 },
+    bgcolor: 'background.paper',
+    borderRadius: 3, // Bordas mais arredondadas
+    boxShadow: theme.shadows[1], // Sombra muito suave (definida no main.tsx)
+    p: 4,
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    outline: 'none', // Remove a linha azul de foco do navegador
+  };
+
   useEffect(() => {
     if (open && clientToEdit) {
-      // 1. Preenche o formulário imediatamente
       setValue('name', clientToEdit.name);
       setValue('phone', clientToEdit.phone || '');
       setValue('address', clientToEdit.address || '');
@@ -84,13 +87,11 @@ export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackb
         setValue('birthday', date);
       }
 
-      // 2. Busca o histórico completo do backend (com orders)
       api.get<ClientWithOrders>(`/clients/${clientToEdit.id}`)
         .then(res => setHistory(res.data))
         .catch(err => console.error("Erro ao buscar histórico:", err));
 
     } else {
-      // Modo Criar: Limpa tudo
       reset({ name: '', phone: '', address: '', birthday: '', notes: '' });
       setHistory(null);
     }
@@ -126,10 +127,16 @@ export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackb
 
   return (
     <Modal open={open} onClose={handleClose}>
-      <Box sx={style}>
-        <Typography variant="h6" component="h2" color="primary" gutterBottom>
-          {clientToEdit ? `Editar: ${clientToEdit.name}` : 'Novo Cliente'}
-        </Typography>
+      <Box sx={modalStyle}>
+        {/* Cabeçalho do Modal com Ícone X */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold' }}>
+            {clientToEdit ? `Editar Cliente` : 'Novo Cliente'}
+          </Typography>
+          <IconButton onClick={handleClose} size="small">
+            <X size={24} strokeWidth={1.5} />
+          </IconButton>
+        </Box>
 
         {/* FORMULÁRIO */}
         <Box component="form" onSubmit={handleSubmit(onSubmit)}>
@@ -137,9 +144,10 @@ export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackb
             margin="dense" label="Nome Completo" fullWidth required
             {...register("name", { required: "Nome é obrigatório" })}
             error={!!errors.name} helperText={errors.name?.message}
+            sx={{ mb: 2 }}
           />
           
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               margin="dense" label="Telefone" fullWidth
               {...register("phone")}
@@ -154,51 +162,59 @@ export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackb
           <TextField
             margin="dense" label="Endereço" fullWidth
             {...register("address")}
+            sx={{ mb: 2 }}
           />
 
           <TextField
-            margin="dense" label="Preferências / Notas" fullWidth multiline rows={2}
+            margin="dense" label="Preferências / Notas" fullWidth multiline rows={3}
             placeholder="Ex: Gosta de bolo menos doce; Alérgico a amendoim..."
             {...register("notes")}
+            sx={{ mb: 3 }}
           />
 
-          <Button type="submit" variant="contained" sx={{ mt: 2 }} fullWidth>
+          <Button type="submit" variant="contained" size="large" fullWidth sx={{ borderRadius: 2, py: 1.2 }}>
             Salvar Dados
           </Button>
         </Box>
 
-        {/* HISTÓRICO DE PEDIDOS (Só aparece se estiver editando e tiver histórico) */}
+        {/* HISTÓRICO DE PEDIDOS */}
         {clientToEdit && history && history.orders.length > 0 && (
           <>
             <Divider sx={{ my: 3 }} />
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
               Histórico de Pedidos ({history.orders.length})
             </Typography>
             
-            <TableContainer component={Paper} sx={{ maxHeight: 200, bgcolor: '#f9f9f9' }}>
+            {/* Tabela com visual mais limpo */}
+            <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 250, border: '1px solid #e0e0e0', borderRadius: 2 }}>
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell><b>Data</b></TableCell>
-                    <TableCell><b>Resumo</b></TableCell>
-                    <TableCell><b>Total</b></TableCell>
-                    <TableCell><b>Status</b></TableCell>
+                    <TableCell sx={{ bgcolor: '#f8f9fa', fontWeight: 600 }}>Data</TableCell>
+                    <TableCell sx={{ bgcolor: '#f8f9fa', fontWeight: 600 }}>Resumo</TableCell>
+                    <TableCell sx={{ bgcolor: '#f8f9fa', fontWeight: 600 }}>Total</TableCell>
+                    <TableCell sx={{ bgcolor: '#f8f9fa', fontWeight: 600 }}>Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {history.orders.map((order) => (
-                    <TableRow key={order.id}>
+                    <TableRow key={order.id} hover>
                       <TableCell>{new Date(order.createdAt).toLocaleDateString('pt-BR')}</TableCell>
-                      <TableCell>
-                        {order.items.map(i => `${i.quantity}x ${i.product.name}`).join(', ')}
+                      <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <Typography variant="body2" noWrap>
+                          {order.items.map(i => `${i.quantity}x ${i.product.name}`).join(', ')}
+                        </Typography>
                       </TableCell>
-                      <TableCell>R$ {order.total.toFixed(2)}</TableCell>
+                      <TableCell>
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.total)}
+                      </TableCell>
                       <TableCell>
                         <Chip 
                           label={order.status} 
                           size="small" 
                           color={order.status === 'CONCLUÍDO' ? 'success' : order.status === 'CANCELADO' ? 'error' : 'warning'} 
                           variant="outlined"
+                          sx={{ fontWeight: 500, fontSize: '0.75rem' }}
                         />
                       </TableCell>
                     </TableRow>
@@ -210,7 +226,7 @@ export function ClientModal({ open, handleClose, onSave, clientToEdit, setSnackb
         )}
         
         {clientToEdit && history && history.orders.length === 0 && (
-           <Typography variant="body2" sx={{ mt: 3, fontStyle: 'italic', color: 'gray' }}>
+           <Typography variant="body2" sx={{ mt: 3, fontStyle: 'italic', color: 'text.secondary', textAlign: 'center' }}>
              Este cliente ainda não realizou nenhum pedido.
            </Typography>
         )}

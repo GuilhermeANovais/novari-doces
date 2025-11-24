@@ -1,12 +1,17 @@
 // src/components/EditOrderModal.tsx
-import { Modal, Box, Typography, TextField, Button, FormControl, InputLabel, Select, MenuItem, CircularProgress } from '@mui/material';
+import { 
+  Modal, Box, Typography, TextField, Button, FormControl, 
+  InputLabel, Select, MenuItem, CircularProgress, IconButton, useTheme
+} from '@mui/material';
+// 1. Ícone Lucide
+import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import api from '../api';
 import { OrderSummary } from '../types/entities';
 
 interface EditOrderFormInputs {
-  clientId: string | number; // Pode ser vazio
+  clientId: string | number;
   deliveryDate: string;
   observations: string;
 }
@@ -19,38 +24,38 @@ interface EditOrderModalProps {
   setSnackbar: any;
 }
 
-const style = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: 400,
-  bgcolor: 'background.paper',
-  border: '2px solid #000',
-  boxShadow: 24,
-  p: 4,
-};
-
 export function EditOrderModal({ open, handleClose, onSave, order, setSnackbar }: EditOrderModalProps) {
-  const { register, handleSubmit, setValue, reset } = useForm<EditOrderFormInputs>();
+  const theme = useTheme();
+  const { register, handleSubmit, setValue } = useForm<EditOrderFormInputs>();
   const [clients, setClients] = useState<any[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
+
+  // Estilo do Modal (Clean UI)
+  const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 400,
+    bgcolor: 'background.paper',
+    borderRadius: 3,
+    boxShadow: theme.shadows[1],
+    p: 4,
+    outline: 'none',
+  };
 
   // Carrega clientes e preenche formulário
   useEffect(() => {
     if (open && order) {
-      // 1. Busca Clientes
       setLoadingClients(true);
       api.get('/clients').then(res => {
         setClients(res.data);
       }).finally(() => setLoadingClients(false));
 
-      // 2. Preenche campos
       setValue('clientId', order.client?.id || '');
-      setValue('observations', (order as any).observations || ''); // Cast as any se a interface não tiver obs ainda
+      setValue('observations', (order as any).observations || '');
       
       if (order.deliveryDate) {
-        // Formata para o input datetime-local (YYYY-MM-DDTHH:mm)
         const date = new Date(order.deliveryDate).toISOString().slice(0, 16);
         setValue('deliveryDate', date);
       } else {
@@ -63,7 +68,7 @@ export function EditOrderModal({ open, handleClose, onSave, order, setSnackbar }
     if (!order) return;
 
     const updateData = {
-      clientId: data.clientId ? Number(data.clientId) : null, // Envia null para remover cliente
+      clientId: data.clientId ? Number(data.clientId) : null,
       deliveryDate: data.deliveryDate ? new Date(data.deliveryDate).toISOString() : null,
       observations: data.observations,
     };
@@ -71,7 +76,7 @@ export function EditOrderModal({ open, handleClose, onSave, order, setSnackbar }
     try {
       await api.patch(`/orders/${order.id}`, updateData);
       setSnackbar({ open: true, message: 'Pedido atualizado com sucesso!', severity: 'success' });
-      onSave(); // Recarrega a tabela
+      onSave();
       handleClose();
     } catch (error) {
       console.error("Erro ao atualizar:", error);
@@ -81,12 +86,18 @@ export function EditOrderModal({ open, handleClose, onSave, order, setSnackbar }
 
   return (
     <Modal open={open} onClose={handleClose}>
-      <Box sx={style}>
-        <Typography variant="h6" component="h2" gutterBottom>
-          Editar Pedido #{order?.id}
-        </Typography>
+      <Box sx={modalStyle}>
+        {/* Cabeçalho com Fechar */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold' }}>
+            Editar Pedido #{order?.id}
+          </Typography>
+          <IconButton onClick={handleClose} size="small">
+            <X size={24} strokeWidth={1.5} />
+          </IconButton>
+        </Box>
 
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 2 }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)}>
           
           <FormControl fullWidth margin="normal">
             <InputLabel shrink>Cliente</InputLabel>
@@ -96,6 +107,7 @@ export function EditOrderModal({ open, handleClose, onSave, order, setSnackbar }
               defaultValue=""
               disabled={loadingClients}
               {...register("clientId")}
+              sx={{ borderRadius: 1 }}
             >
               <option value="">Sem Cliente (Interno)</option>
               {clients.map((client) => (
@@ -113,6 +125,7 @@ export function EditOrderModal({ open, handleClose, onSave, order, setSnackbar }
             type="datetime-local"
             InputLabelProps={{ shrink: true }}
             {...register("deliveryDate")}
+            sx={{ borderRadius: 1 }}
           />
 
           <TextField
@@ -122,13 +135,15 @@ export function EditOrderModal({ open, handleClose, onSave, order, setSnackbar }
             multiline
             rows={3}
             {...register("observations")}
+            sx={{ borderRadius: 1 }}
           />
 
           <Button
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3 }}
+            size="large"
+            sx={{ mt: 3, borderRadius: 2, py: 1.2 }}
           >
             Salvar Alterações
           </Button>

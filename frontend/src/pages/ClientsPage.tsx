@@ -1,10 +1,11 @@
 // src/pages/ClientsPage.tsx
 import { Box, Typography, Button, IconButton, Snackbar, Alert } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { Add, Delete, Edit } from '@mui/icons-material';
+// 1. Importe os ícones da Lucide
+import { Plus, Trash2, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '../api';
-import { ClientModal } from '../components/ClientModal'; // Importe o novo modal
+import { ClientModal } from '../components/ClientModal';
 
 // Interface para o Cliente
 interface Client {
@@ -85,11 +86,14 @@ export function ClientsPage() {
       renderCell: (params) => {
         return (
           <Box>
+            {/* Botão Editar (Pencil) */}
             <IconButton onClick={() => handleOpenModal(params.row)} color="primary">
-              <Edit />
+              <Pencil size={18} strokeWidth={1.5} />
             </IconButton>
+            
+            {/* Botão Deletar (Trash2) */}
             <IconButton onClick={() => handleDelete(params.row.id)} color="error">
-              <Delete />
+              <Trash2 size={18} strokeWidth={1.5} />
             </IconButton>
           </Box>
         );
@@ -112,8 +116,9 @@ export function ClientsPage() {
         <Button
           variant="contained"
           color="primary"
-          startIcon={<Add />}
-          onClick={() => handleOpenModal(null)} // "null" significa "Novo Cliente"
+          // Ícone Plus (estilo novo)
+          startIcon={<Plus size={20} strokeWidth={1.5} />}
+          onClick={() => handleOpenModal(null)} 
         >
           Novo Cliente
         </Button>

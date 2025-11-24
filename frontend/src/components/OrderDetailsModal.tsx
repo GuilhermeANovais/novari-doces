@@ -1,11 +1,13 @@
+// src/components/OrderDetailsModal.tsx
 import {
   Modal, Box, Typography, Divider, List, ListItem,
-  ListItemText, Button, IconButton, CircularProgress, Tooltip
+  ListItemText, Button, IconButton, CircularProgress, Tooltip, useTheme
 } from '@mui/material';
-import { Close, Print, WhatsApp } from '@mui/icons-material';
+// 1. Ícones Lucide
+import { X, Printer, MessageCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { FullOrder } from '../types/entities'; // Certifique-se que este arquivo existe
+import { FullOrder } from '../types/entities';
 
 interface OrderDetailsModalProps {
   orderId: number | null;
@@ -13,26 +15,28 @@ interface OrderDetailsModalProps {
   handleClose: () => void;
 }
 
-const style = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: { xs: '90%', sm: 500 },
-  bgcolor: 'background.paper',
-  border: '2px solid #000',
-  boxShadow: 24,
-  p: 4,
-  maxHeight: '90vh', // Garante que não ultrapasse a altura da tela
-  overflowY: 'auto', // Adiciona scroll se necessário
-};
-
 export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsModalProps) {
+  const theme = useTheme();
   const [order, setOrder] = useState<FullOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Busca os dados sempre que o ID mudar ou o modal abrir
+  // Estilo do Modal (Clean UI)
+  const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: { xs: '90%', sm: 600 },
+    bgcolor: 'background.paper',
+    borderRadius: 3, // Bordas arredondadas
+    boxShadow: theme.shadows[1], // Sombra suave
+    p: 4,
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    outline: 'none',
+  };
+
   useEffect(() => {
     if (open && orderId) {
       setLoading(true);
@@ -93,15 +97,13 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
   const handleWhatsApp = () => {
     if (!order || !order.client || !order.client.phone) return;
 
-    // Limpa o telefone (remove parênteses, traços, espaços)
     const phone = order.client.phone.replace(/\D/g, '');
     
-    // Mensagem personalizada baseada no status
     let message = `Olá ${order.client.name}, aqui é da Confeitaria Heaven! 🍰\n`;
-    message += `Estamos entrando em contato sobre o pedido #${order.id}.\n\n`;
+    message += `Estamos a entrar em contacto sobre o pedido #${order.id}.\n\n`;
 
     if (order.status === 'PENDENTE') {
-      message += `Confirmamos o recebimento! Valor total: R$ ${order.total.toFixed(2)}.`;
+      message += `Confirmamos a recepção! Valor total: R$ ${order.total.toFixed(2)}.`;
       if (order.deliveryDate) {
         message += `\nPrevisão de entrega/retirada: ${new Date(order.deliveryDate).toLocaleString('pt-BR')}.`;
       }
@@ -111,7 +113,6 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
       message += `O seu pedido foi cancelado. Caso tenha dúvidas, por favor responda a esta mensagem.`;
     }
 
-    // Abre o link do WhatsApp Web/App
     const url = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
@@ -131,19 +132,19 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
 
     return (
       <>
-        {/* Cabeçalho Cliente + WhatsApp */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Typography variant="h6">Cliente</Typography>
+        {/* Header: Cliente e Ações */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>Dados do Cliente</Typography>
           
-          {/* Botão WhatsApp só aparece se tiver telefone */}
           {order.client?.phone && (
             <Tooltip title="Enviar mensagem no WhatsApp">
               <Button 
                 variant="outlined" 
                 color="success" 
                 size="small" 
-                startIcon={<WhatsApp />}
+                startIcon={<MessageCircle size={18} />}
                 onClick={handleWhatsApp}
+                sx={{ borderRadius: 2, textTransform: 'none' }}
               >
                 WhatsApp
               </Button>
@@ -151,67 +152,64 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
           )}
         </Box>
 
-        {order.client ? (
-          <Box sx={{ pl: 2, mt: 1 }}>
-            <Typography><b>Nome:</b> {order.client.name}</Typography>
-            <Typography><b>Telefone:</b> {order.client.phone || 'N/A'}</Typography>
-            <Typography><b>Endereço:</b> {order.client.address || 'N/A'}</Typography>
-          </Box>
-        ) : (
-          <Typography sx={{ pl: 2, fontStyle: 'italic' }}>Pedido interno (sem cliente associado)</Typography>
-        )}
+        <Box sx={{ bgcolor: '#f9f9f9', p: 2, borderRadius: 2, mb: 3 }}>
+          {order.client ? (
+            <>
+              <Typography variant="body1"><b>Nome:</b> {order.client.name}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}><b>Telefone:</b> {order.client.phone || 'N/A'}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}><b>Endereço:</b> {order.client.address || 'N/A'}</Typography>
+            </>
+          ) : (
+            <Typography sx={{ fontStyle: 'italic', color: 'text.secondary' }}>Pedido interno (sem cliente associado)</Typography>
+          )}
+        </Box>
 
-        <Divider sx={{ my: 2 }} />
-
-        {/* Detalhes do Pedido */}
-        <Typography variant="h6">Pedido</Typography>
-        <Box sx={{ pl: 2 }}>
-          <Typography><b>Status:</b> {order.status}</Typography>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>Detalhes do Pedido</Typography>
+        
+        <Box sx={{ bgcolor: '#f9f9f9', p: 2, borderRadius: 2, mb: 3 }}>
+          <Typography variant="body2"><b>Status:</b> {order.status}</Typography>
           
           {order.deliveryDate && (
-             <Typography>
+             <Typography variant="body2" sx={{ mt: 0.5 }}>
                <b>Data de Entrega:</b> {new Date(order.deliveryDate).toLocaleString('pt-BR')}
              </Typography>
           )}
           
-          <Typography><b>Observações:</b> {order.observations || 'Nenhuma'}</Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}><b>Observações:</b> {order.observations || 'Nenhuma'}</Typography>
         </Box>
 
-        <Divider sx={{ my: 2 }} />
-
-        {/* Lista de Itens */}
-        <Typography variant="h6">Itens Incluídos</Typography>
-        <List dense sx={{ maxHeight: 200, overflow: 'auto', bgcolor: '#f9f9f9', borderRadius: 1, mt: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>Itens</Typography>
+        
+        <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 2 }}>
           {order.items.map((item) => (
             <ListItem key={item.id} divider>
               <ListItemText
-                primary={`${item.quantity}x ${item.product.name}`}
-                secondary={`R$ ${item.price.toFixed(2)} un.`}
+                primary={<Typography fontWeight={500}>{item.product.name}</Typography>}
+                secondary={`${item.quantity}x R$ ${item.price.toFixed(2)} un.`}
               />
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                 R$ {(item.quantity * item.price).toFixed(2)}
               </Typography>
             </ListItem>
           ))}
         </List>
 
-        <Divider sx={{ my: 2 }} />
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, mb: 3 }}>
+          <Typography variant="h5" color="primary.dark" sx={{ fontWeight: 'bold' }}>
+            Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.total)}
+          </Typography>
+        </Box>
 
-        {/* Total */}
-        <Typography variant="h5" align="right" color="primary.dark" sx={{ fontWeight: 'bold' }}>
-          Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.total)}
-        </Typography>
-
-        {/* Botão Exportar PDF */}
         <Button
           variant="contained"
           onClick={handlePrintPdf}
-          startIcon={isPrinting ? <CircularProgress size={20} color="inherit" /> : <Print />}
-          sx={{ mt: 3 }}
+          startIcon={isPrinting ? <CircularProgress size={20} color="inherit" /> : <Printer size={20} />}
           fullWidth
+          size="large"
           disabled={isPrinting}
+          sx={{ borderRadius: 2, py: 1.5 }}
         >
-          {isPrinting ? 'Gerando PDF...' : 'Exportar para PDF'}
+          {isPrinting ? 'A gerar PDF...' : 'Exportar para PDF'}
         </Button>
       </>
     );
@@ -219,18 +217,18 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
 
   return (
     <Modal open={open} onClose={handleClose}>
-      <Box sx={style}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="h5" component="h2" color="primary">
-            Detalhes do Pedido #{order?.id || orderId}
+      <Box sx={modalStyle}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', color: '#1B5E20' }}>
+            Pedido #{order?.id || orderId}
           </Typography>
-          <IconButton onClick={handleClose}>
-            <Close />
+          <IconButton onClick={handleClose} size="small">
+            <X size={24} />
           </IconButton>
         </Box>
         
         {order && (
-          <Typography variant="body2" color="textSecondary" gutterBottom>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
             Criado em: {new Date(order.createdAt).toLocaleString('pt-BR')}
           </Typography>
         )}

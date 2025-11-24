@@ -4,7 +4,8 @@ import {
   CircularProgress, Divider, IconButton, Snackbar, Alert,
   TextField, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Tooltip
 } from '@mui/material';
-import { Add, Remove, Delete, PersonAdd } from '@mui/icons-material';
+// 1. Novos ícones da Lucide
+import { Plus, Minus, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -34,21 +35,17 @@ type SnackbarState = {
 } | null;
 
 export function NewOrderPage() {
-  // --- Estados de Dados ---
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   
-  // --- Estados de Carregamento ---
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingClients, setLoadingClients] = useState(true);
   
-  // --- Campos do Formulário ---
   const [selectedClientId, setSelectedClientId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState(''); // Novo campo de Data
+  const [deliveryDate, setDeliveryDate] = useState('');
   
-  // --- Estados de UI ---
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -102,9 +99,11 @@ export function NewOrderPage() {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productId);
       if (!existingItem) return prevCart;
+
       if (existingItem.quantity === 1) {
         return prevCart.filter((item) => item.id !== productId);
       }
+      
       return prevCart.map((item) =>
         item.id === productId
           ? { ...item, quantity: item.quantity - 1 }
@@ -133,16 +132,12 @@ export function NewOrderPage() {
       })),
       clientId: selectedClientId || undefined,
       observations: observations || undefined,
-      // Converte a string do input para ISO Date
       deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : undefined,
     };
 
     try {
       await api.post('/orders', orderData);
-      
       setSnackbar({ open: true, message: 'Pedido criado com sucesso!', severity: 'success' });
-      
-      // Limpa o formulário
       setCart([]);
       setObservations('');
       setSelectedClientId('');
@@ -160,7 +155,6 @@ export function NewOrderPage() {
     }
   };
 
-  // Callback quando um cliente é criado no modal
   const handleClientCreated = (newClient: any) => {
     fetchClients(); 
     setSelectedClientId(newClient.id);
@@ -168,21 +162,27 @@ export function NewOrderPage() {
 
   const handleCloseSnackbar = () => setSnackbar(null);
 
+  // --- JSX ---
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: '#1a1a1a' }}>
         Criar Novo Pedido
       </Typography>
       
       <Grid container spacing={3}>
         {/* Coluna Esquerda: Produtos */}
         <Grid item xs={12} md={7}>
-          <Paper elevation={3} sx={{ p: 2, backgroundColor: 'white' }}>
-            <Typography variant="h6" gutterBottom>Produtos Disponíveis</Typography>
+          <Paper 
+            elevation={0} 
+            sx={{ p: 2, backgroundColor: 'white', border: '1px solid #e0e0e0', borderRadius: 2 }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 500 }}>
+              Produtos Disponíveis
+            </Typography>
             {loadingProducts ? (
               <CircularProgress />
             ) : (
-              <List sx={{ maxHeight: '60vh', overflow: 'auto' }}>
+              <List sx={{ maxHeight: '65vh', overflow: 'auto' }}>
                 {products.map((product) => (
                   <ListItem 
                     key={product.id}
@@ -191,7 +191,9 @@ export function NewOrderPage() {
                       <Button 
                         variant="contained" 
                         size="small"
+                        startIcon={<Plus size={16} />} // Ícone Plus
                         onClick={() => handleAddToCart(product)}
+                        sx={{ borderRadius: 2, textTransform: 'none' }}
                       >
                         Adicionar
                       </Button>
@@ -200,6 +202,7 @@ export function NewOrderPage() {
                     <ListItemText 
                       primary={product.name}
                       secondary={`R$ ${product.price.toFixed(2)}`}
+                      primaryTypographyProps={{ fontWeight: 500 }}
                     />
                   </ListItem>
                 ))}
@@ -210,9 +213,14 @@ export function NewOrderPage() {
 
         {/* Coluna Direita: Detalhes */}
         <Grid item xs={12} md={5}>
-          <Paper elevation={3} sx={{ p: 2, backgroundColor: 'white' }}>
-            <Typography variant="h6" gutterBottom>Detalhes do Pedido</Typography>
-            <Divider sx={{ mb: 2 }} />
+          <Paper 
+            elevation={0} 
+            sx={{ p: 3, backgroundColor: 'white', border: '1px solid #e0e0e0', borderRadius: 2 }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 500 }}>
+              Detalhes do Pedido
+            </Typography>
+            <Divider sx={{ mb: 3 }} />
 
             {/* Seleção de Cliente + Botão Novo */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
@@ -239,15 +247,15 @@ export function NewOrderPage() {
               <Tooltip title="Cadastrar Novo Cliente">
                 <Button 
                   variant="outlined" 
-                  sx={{ height: '56px', minWidth: '56px' }}
+                  sx={{ height: '56px', minWidth: '56px', borderRadius: 1 }}
                   onClick={() => setClientModalOpen(true)}
                 >
-                  <PersonAdd />
+                  {/* Ícone UserPlus */}
+                  <UserPlus size={24} strokeWidth={1.5} />
                 </Button>
               </Tooltip>
             </Box>
 
-            {/* Input de Data de Entrega */}
             <TextField
               label="Data de Entrega/Retirada"
               type="datetime-local"
@@ -268,13 +276,15 @@ export function NewOrderPage() {
               onChange={(e) => setObservations(e.target.value)}
             />
 
-            <Divider sx={{ mt: 2, mb: 2 }} />
-            <Typography variant="h6" gutterBottom>Carrinho</Typography>
+            <Divider sx={{ mt: 3, mb: 2 }} />
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 500 }}>
+              Carrinho
+            </Typography>
 
             <List sx={{ maxHeight: '30vh', overflow: 'auto' }}>
               {cart.length === 0 ? (
-                <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
-                  O carrinho está vazio.
+                <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary', py: 2, textAlign: 'center' }}>
+                  O carrinho está vazio. Adicione produtos ao lado.
                 </Typography>
               ) : (
                 cart.map((item) => (
@@ -283,14 +293,15 @@ export function NewOrderPage() {
                       primary={item.name}
                       secondary={`Qtd: ${item.quantity} x R$ ${item.price.toFixed(2)}`}
                     />
+                    {/* Controles do Carrinho */}
                     <IconButton size="small" onClick={() => handleAddToCart(item)}>
-                      <Add />
+                      <Plus size={16} />
                     </IconButton>
                     <IconButton size="small" onClick={() => handleRemoveFromCart(item.id)}>
-                      <Remove />
+                      <Minus size={16} />
                     </IconButton>
                     <IconButton size="small" edge="end" onClick={() => handleDeleteItem(item.id)}>
-                      <Delete color="error" />
+                      <Trash2 size={18} color="#d32f2f" />
                     </IconButton>
                   </ListItem>
                 ))
@@ -299,15 +310,19 @@ export function NewOrderPage() {
 
             <Divider sx={{ mt: 2, mb: 2 }} />
 
-            <Typography variant="h5">
-              Total: R$ {total.toFixed(2)}
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Total:</Typography>
+              <Typography variant="h5" color="primary" fontWeight="bold">
+                R$ {total.toFixed(2)}
+              </Typography>
+            </Box>
 
             <Button
               variant="contained"
               color="primary"
               fullWidth
-              sx={{ mt: 2 }}
+              size="large"
+              sx={{ mt: 1, py: 1.5, borderRadius: 2, textTransform: 'none', fontSize: '1rem' }}
               disabled={cart.length === 0 || isSubmitting}
               onClick={handleFinishOrder}
             >
@@ -317,7 +332,6 @@ export function NewOrderPage() {
         </Grid>
       </Grid>
 
-      {/* Modal de Cliente */}
       <ClientModal
         open={clientModalOpen}
         handleClose={() => setClientModalOpen(false)}
@@ -327,7 +341,6 @@ export function NewOrderPage() {
         setSnackbar={setSnackbar}
       />
 
-      {/* Snackbar */}
       {snackbar && (
         <Snackbar
           open={snackbar.open}
@@ -335,11 +348,7 @@ export function NewOrderPage() {
           onClose={handleCloseSnackbar}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
             {snackbar.message}
           </Alert>
         </Snackbar>

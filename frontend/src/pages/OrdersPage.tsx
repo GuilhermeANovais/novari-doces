@@ -1,15 +1,16 @@
 // src/pages/OrdersPage.tsx
 import {
   Box, Typography, Button, Select, MenuItem,
-  SelectChangeEvent, Snackbar, Alert, IconButton
+  SelectChangeEvent, Snackbar, Alert, IconButton, Paper
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { Add, Delete, Visibility, Edit } from '@mui/icons-material';
-import { EditOrderModal } from '../components/EditOrderModal';
+// 1. Novos ícones Lucide
+import { Plus, Eye, Trash2, Pencil } from 'lucide-react';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { OrderDetailsModal } from '../components/OrderDetailsModal';
+import { EditOrderModal } from '../components/EditOrderModal'; // Importe o modal de edição
 import { OrderSummary } from '../types/entities';
 
 type SnackbarState = {
@@ -18,8 +19,7 @@ type SnackbarState = {
   severity: 'success' | 'error';
 } | null;
 
-// Estendemos a interface localmente para garantir que o TS reconheça o novo campo
-// caso o arquivo entities.ts não tenha sido atualizado
+// Interface estendida localmente caso entities.ts não tenha deliveryDate
 interface OrderWithDelivery extends OrderSummary {
   deliveryDate?: string | null;
 }
@@ -29,16 +29,17 @@ export function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
   const navigate = useNavigate();
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [orderToEdit, setOrderToEdit] = useState<OrderSummary | null>(null);
 
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  
+  // Estados para edição
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [orderToEdit, setOrderToEdit] = useState<OrderWithDelivery | null>(null);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get<OrderWithDelivery[]>('/orders');
-      console.log("DADOS RECEBIDOS:", response.data);
       setOrders(response.data);
     } catch (error) {
       console.error("Erro ao buscar pedidos:", error);
@@ -76,13 +77,14 @@ export function OrdersPage() {
     }
   }, [fetchOrders]);
 
-  const handleEditOrder = (order: OrderSummary) => {
+  const handleViewDetails = (id: number) => setSelectedOrderId(id);
+  const handleCloseDetailsModal = () => setSelectedOrderId(null);
+  
+  const handleEditOrder = (order: OrderWithDelivery) => {
     setOrderToEdit(order);
     setEditModalOpen(true);
   };
 
-  const handleViewDetails = (id: number) => setSelectedOrderId(id);
-  const handleCloseDetailsModal = () => setSelectedOrderId(null);
   const handleCloseSnackbar = () => setSnackbar(null);
   const handleNewOrder = () => navigate('/orders/new');
 
@@ -103,31 +105,19 @@ export function OrdersPage() {
         let color = 'default';
         if (params.value === 'CONCLUÍDO') color = 'success';
         if (params.value === 'CANCELADO') color = 'error';
-        return <Typography color={color}>{params.value}</Typography>;
+        return <Typography color={color} variant="body2" fontWeight="medium">{params.value}</Typography>;
       }
     },
-    // NOVA COLUNA DE ENTREGA
     {
       field: 'deliveryDate',
       headerName: 'Entrega',
-      width: 180,
-      // Usamos valueGetter para garantir que pegamos o valor, mesmo se estiver aninhado ou undefined
-      valueGetter: (value, row) => {
-        // Tenta pegar do value (padrão) ou direto da linha (row)
-        return value || row.deliveryDate;
-      },
+      width: 160,
+      valueGetter: (value, row) => value || row.deliveryDate,
       valueFormatter: (value) => {
         if (!value) return '—';
-        try {
-          return new Date(value).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-        } catch (e) {
-          return 'Data Inválida';
-        }
+        return new Date(value).toLocaleString('pt-BR', {
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
       },
     },
     {
@@ -159,42 +149,50 @@ export function OrdersPage() {
     {
       field: 'actions',
       headerName: 'Ações',
-      width: 240,
+      width: 220,
       sortable: false,
       renderCell: (params) => {
+        const statusValue = ['PENDENTE', 'CONCLUÍDO', 'CANCELADO'].includes(params.row.status) ? params.row.status : 'PENDENTE';
+        
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {/* Ver Detalhes */}
             <IconButton
               color="default"
               size="small"
               onClick={() => handleViewDetails(params.row.id)}
             >
-              <Visibility />
-            </IconButton>
-            <IconButton 
-              color="primary" 
-              size="small" 
-              onClick={() => handleEditOrder(params.row)}
-            >
-              <Edit />
+              <Eye size={18} strokeWidth={1.5} />
             </IconButton>
 
+            {/* Editar */}
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => handleEditOrder(params.row)}
+            >
+              <Pencil size={18} strokeWidth={1.5} />
+            </IconButton>
+
+            {/* Select Rápido de Status */}
             <Select
-              value={params.row.status}
+              value={statusValue}
               onChange={(e: SelectChangeEvent) => handleStatusChange(params.row.id, e.target.value)}
               size="small"
-              sx={{ flexGrow: 1, mx: 1 }}
+              sx={{ height: 30, fontSize: '0.8rem' }}
             >
               <MenuItem value="PENDENTE">Pendente</MenuItem>
               <MenuItem value="CONCLUÍDO">Concluído</MenuItem>
               <MenuItem value="CANCELADO">Cancelado</MenuItem>
             </Select>
+
+            {/* Deletar */}
             <IconButton
               color="error"
               size="small"
               onClick={() => handleDeleteOrder(params.row.id)}
             >
-              <Delete />
+              <Trash2 size={18} strokeWidth={1.5} />
             </IconButton>
           </Box>
         );
@@ -204,21 +202,31 @@ export function OrdersPage() {
 
   return (
     <Box sx={{ height: '100%', width: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1a1a1a' }}>
           Pedidos
         </Typography>
         <Button
           variant="contained"
           color="primary"
-          startIcon={<Add />}
+          startIcon={<Plus size={20} strokeWidth={1.5} />}
           onClick={handleNewOrder}
+          sx={{ textTransform: 'none', borderRadius: 2 }}
         >
           Novo Pedido
         </Button>
       </Box>
 
-      <Box sx={{ height: 500, width: '100%', backgroundColor: 'white' }}>
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          height: 500, 
+          width: '100%', 
+          backgroundColor: 'white', 
+          border: '1px solid #e0e0e0', 
+          borderRadius: 2 
+        }}
+      >
         <DataGrid
           rows={orders}
           columns={columns}
@@ -227,8 +235,9 @@ export function OrdersPage() {
             pagination: { paginationModel: { pageSize: 10 } },
           }}
           pageSizeOptions={[10, 20]}
+          sx={{ border: 'none' }}
         />
-      </Box>
+      </Paper>
 
       <OrderDetailsModal
         open={selectedOrderId !== null}
@@ -239,7 +248,7 @@ export function OrdersPage() {
       <EditOrderModal 
         open={editModalOpen}
         handleClose={() => setEditModalOpen(false)}
-        onSave={fetchOrders} // Recarrega a tabela ao salvar
+        onSave={fetchOrders}
         order={orderToEdit}
         setSnackbar={setSnackbar}
       />

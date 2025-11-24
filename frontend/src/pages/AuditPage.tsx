@@ -1,3 +1,4 @@
+// src/pages/AuditPage.tsx
 import { Box, Typography, Chip } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { useEffect, useState } from 'react';
@@ -27,7 +28,8 @@ const columns: GridColDef[] = [
       if (params.value === 'CREATE') color = 'success';
       if (params.value === 'UPDATE') color = 'info';
       if (params.value === 'DELETE') color = 'error';
-      return <Chip label={params.value} color={color} size="small" />;
+      // Usamos Chips simples, ficam bem com o design clean
+      return <Chip label={params.value} color={color} size="small" variant="outlined" />;
     }
   },
   { field: 'entity', headerName: 'Entidade', width: 100 },
@@ -37,7 +39,7 @@ const columns: GridColDef[] = [
     field: 'userName', 
     headerName: 'Usuário', 
     width: 150,
-    valueGetter: (value, row) => row.user?.name || row.user?.email 
+    valueGetter: (_value, row) => row.user?.name || row.user?.email 
   },
   { 
     field: 'createdAt', 
@@ -54,6 +56,7 @@ export function AuditPage() {
   useEffect(() => {
     api.get('/audit')
       .then(res => setLogs(res.data))
+      .catch(err => console.error("Erro ao buscar logs:", err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -68,6 +71,7 @@ export function AuditPage() {
           initialState={{
             pagination: { paginationModel: { pageSize: 20 } },
           }}
+          pageSizeOptions={[20, 50]}
         />
       </Box>
     </Box>

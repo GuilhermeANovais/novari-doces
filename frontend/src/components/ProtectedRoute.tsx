@@ -9,14 +9,15 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const auth = useAuth();
-  const location = useLocation(); // Pega a localização atual
+  const location = useLocation();
 
+  // Se não estiver autenticado, redireciona para o login
   if (!auth.isAuthenticated) {
-    // redirecione para /login
-    // 'replace' troca a rota no histórico (o usuário não pode "voltar" para cá)
-    // 'state' guarda a página que ele tentou acessar
+    // 'replace' impede que o usuário volte para a rota protegida usando o botão "Voltar"
+    // 'state' guarda a origem para redirecionar de volta após o login
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  // Se estiver autenticado, renderiza o conteúdo (DashboardLayout)
   return <>{children}</>;
 }
