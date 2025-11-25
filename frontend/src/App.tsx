@@ -12,7 +12,8 @@ import {
   LogOut,
   ChefHat,
   History,
-  KanbanSquare, 
+  KanbanSquare,
+  Wallet,
 } from 'lucide-react';
 import { Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -29,6 +30,7 @@ import { ClientsPage } from './pages/ClientsPage';
 import { OrderCalendarPage } from './pages/OrderCalendarPage';
 import { AuditPage } from './pages/AuditPage'; 
 import { KanbanPage } from './pages/KanbanPage';
+import { ExpensesPage } from './pages/ExpensesPage';
 
 const drawerWidth = 240;
 
@@ -197,6 +199,18 @@ function DashboardLayout() {
                 />
               </ListItemButton>
             </ListItem>
+            {/* Despesas */}
+        <ListItem key="Despesas" disablePadding>
+          <ListItemButton component={Link} to="/expenses" sx={menuItemStyle('/expenses')}>
+            <ListItemIcon sx={iconStyle('/expenses')}>
+              <Wallet size={20} strokeWidth={1.5} />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Despesas" 
+              primaryTypographyProps={{ fontWeight: isActive('/expenses') ? 'bold' : 'medium', fontSize: '0.9rem' }} 
+            />
+          </ListItemButton>
+        </ListItem>
 
           </List>
           
@@ -253,6 +267,7 @@ function App() {
         <Route path="calendar" element={<OrderCalendarPage />} />
         <Route path="audit" element={<AuditPage />} />
         <Route path="production" element={<KanbanPage />} />
+        <Route path="expenses" element={<ExpensesPage />} />
       </Route>
     </Routes>
   );
