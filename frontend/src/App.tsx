@@ -15,6 +15,7 @@ import {
   KanbanSquare,
   Wallet,
   FileText,
+  Settings,
 } from 'lucide-react';
 import { Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -33,6 +34,7 @@ import { AuditPage } from './pages/AuditPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { ReportsHistoryPage } from './pages/ReportsHistoryPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 const drawerWidth = 240;
 
@@ -201,6 +203,7 @@ function DashboardLayout() {
                 />
               </ListItemButton>
             </ListItem>
+
             {/* Despesas */}
         <ListItem key="Despesas" disablePadding>
           <ListItemButton component={Link} to="/expenses" sx={menuItemStyle('/expenses')}>
@@ -223,6 +226,19 @@ function DashboardLayout() {
             <ListItemText 
               primary="Histórico" 
               primaryTypographyProps={{ fontWeight: isActive('/history') ? 'bold' : 'medium', fontSize: '0.9rem' }} 
+            />
+          </ListItemButton>
+        </ListItem>
+
+        {/* Configurações */}
+        <ListItem key="Configurações" disablePadding>
+          <ListItemButton component={Link} to="/settings" sx={menuItemStyle('/settings')}>
+            <ListItemIcon sx={iconStyle('/settings')}>
+              <Settings size={20} strokeWidth={1.5} />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Configurações" 
+              primaryTypographyProps={{ fontWeight: isActive('/settings') ? 'bold' : 'medium', fontSize: '0.9rem' }} 
             />
           </ListItemButton>
         </ListItem>
@@ -284,6 +300,7 @@ function App() {
         <Route path="production" element={<KanbanPage />} />
         <Route path="expenses" element={<ExpensesPage />} />
         <Route path="history" element={<ReportsHistoryPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );
