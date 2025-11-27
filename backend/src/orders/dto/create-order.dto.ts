@@ -7,15 +7,15 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsDateString
+  IsDateString,
 } from 'class-validator';
 import { CreateOrderItemDto } from './create-order-item.dto';
-import { IsEnum } from 'class-validator'
+import { IsEnum } from 'class-validator';
 
 export enum PaymentMethodDto {
   PIX = 'PIX',
-  CASH = 'DINHEIRO',
-  CARD = 'CARTÃO',
+  DINHEIRO = 'DINHEIRO',
+  CARTAO = 'CARTAO',
 }
 
 export class CreateOrderDto {

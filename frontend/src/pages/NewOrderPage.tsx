@@ -272,7 +272,7 @@ export function NewOrderPage() {
               >
                 <MenuItem value="DINHEIRO">Dinheiro</MenuItem>
               <MenuItem value="PIX">PIX</MenuItem>
-              <MenuItem value="CARTÃO">Cartão</MenuItem>
+              <MenuItem value="CARTAO">Cartão</MenuItem>
               </Select>
             </FormControl>
 
