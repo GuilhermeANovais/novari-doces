@@ -64,10 +64,10 @@ export class OrdersService {
     // 2. Mapeia do Enum do DTO (Português) para o Enum do Banco (Inglês)
     let methodForDb: PaymentMethod = PaymentMethod.PIX; // Default
 
-    if (paymentMethod === PaymentMethodDto.CARD) {
-      methodForDb = PaymentMethod.CARD;
-    } else if (paymentMethod === PaymentMethodDto.CASH) {
-      methodForDb = PaymentMethod.CASH;
+    if (paymentMethod === PaymentMethodDto.CARTAO) {
+      methodForDb = PaymentMethod.CARTAO;
+    } else if (paymentMethod === PaymentMethodDto.DINHEIRO) {
+      methodForDb = PaymentMethod.DINHEIRO;
     }
     // Se for PIX, já está no default.
 

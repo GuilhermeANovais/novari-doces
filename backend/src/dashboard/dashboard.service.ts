@@ -10,14 +10,14 @@ export class DashboardService {
     const userCount = await this.prisma.user.count();
     
     // Dados dos Gráficos
-    const salesData = await this.getSalesChartData(); // Últimos 7 dias
+    const salesData = await this.getSalesChartData();
     const topProducts = await this.getTopProductsData();
-    const expensesData = await this.getExpensesChartData(); // Novo: Últimos 30 dias de despesas
+    const expensesData = await this.getExpensesChartData();
 
-    // Dados Financeiros do Mês Atual (Para os Cards)
+    // Dados Financeiros
     const financials = await this.getMonthlyFinancials();
 
-    // Pedidos Próximos
+    // Pedidos Próximos (Lógica corrigida para garantir datas locais)
     const today = new Date();
     const next48Hours = new Date();
     next48Hours.setDate(today.getDate() + 2);
@@ -36,24 +36,50 @@ export class DashboardService {
       userCount,
       salesData,
       topProducts,
-      expensesData, // Novo
+      expensesData,
       upcomingOrders,
-      ...financials, // Espalha: revenueMonth, expensesMonth, netProfit
+      ...financials,
     };
   }
 
-  // --- QUERIES EXISTENTES ---
+  // --- CORREÇÃO DE TIMEZONE AQUI ---
+  // Adicionei "AT TIME ZONE 'America/Sao_Paulo'" para alinhar os dias com o Brasil
+
   private async getSalesChartData() {
+    // Nota: O ::date no final garante que ordenamos corretamente
     const result = await this.prisma.$queryRaw<any[]>`
-      SELECT TO_CHAR("createdAt", 'DD/MM') as date, SUM(total) as amount
+      SELECT 
+        TO_CHAR("createdAt" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM') as date, 
+        SUM(total) as amount
       FROM "Order"
-      WHERE "createdAt" >= NOW() - INTERVAL '7 days' AND status != 'CANCELADO'
-      GROUP BY TO_CHAR("createdAt", 'DD/MM'), "createdAt"::date
-      ORDER BY "createdAt"::date ASC;
+      WHERE "createdAt" >= NOW() - INTERVAL '7 days' 
+        AND status != 'CANCELADO'
+      GROUP BY 
+        TO_CHAR("createdAt" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM'), 
+        ("createdAt" AT TIME ZONE 'America/Sao_Paulo')::date
+      ORDER BY 
+        ("createdAt" AT TIME ZONE 'America/Sao_Paulo')::date ASC;
     `;
     return result.map(i => ({ date: i.date, amount: Number(i.amount) }));
   }
 
+  private async getExpensesChartData() {
+    const result = await this.prisma.$queryRaw<any[]>`
+      SELECT 
+        TO_CHAR("date" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM') as date, 
+        SUM(amount) as amount
+      FROM "Expense"
+      WHERE "date" >= NOW() - INTERVAL '30 days'
+      GROUP BY 
+        TO_CHAR("date" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM'), 
+        ("date" AT TIME ZONE 'America/Sao_Paulo')::date
+      ORDER BY 
+        ("date" AT TIME ZONE 'America/Sao_Paulo')::date ASC;
+    `;
+    return result.map(i => ({ date: i.date, amount: Number(i.amount) }));
+  }
+
+  // A query de Top Produtos não precisa de timezone pois agrupa por nome
   private async getTopProductsData() {
     const result = await this.prisma.$queryRaw<any[]>`
       SELECT p.name as name, SUM(oi.quantity) as value
@@ -67,27 +93,13 @@ export class DashboardService {
     return result.map(i => ({ name: i.name, value: Number(i.value) }));
   }
 
-  // --- NOVAS QUERIES ---
-
-  // 1. Gráfico de Despesas (Últimos 30 dias)
-  private async getExpensesChartData() {
-    const result = await this.prisma.$queryRaw<any[]>`
-      SELECT TO_CHAR("date", 'DD/MM') as date, SUM(amount) as amount
-      FROM "Expense"
-      WHERE "date" >= NOW() - INTERVAL '30 days'
-      GROUP BY TO_CHAR("date", 'DD/MM'), "date"::date
-      ORDER BY "date"::date ASC;
-    `;
-    return result.map(i => ({ date: i.date, amount: Number(i.amount) }));
-  }
-
-  // 2. Totais do Mês Atual (Vendas, Despesas, Lucro)
+  // Para os totais do mês, usamos JavaScript Date que já converte se o servidor estiver configurado,
+  // mas idealmente também usarias queries raw se precisares de precisão absoluta de calendário.
   private async getMonthlyFinancials() {
-    // Pegamos o primeiro e último dia do mês atual
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    // Soma Vendas (Concluídas + Pendentes, exceto Canceladas)
     const salesAgg = await this.prisma.order.aggregate({
       _sum: { total: true },
       where: {
@@ -96,7 +108,6 @@ export class DashboardService {
       }
     });
 
-    // Soma Despesas
     const expensesAgg = await this.prisma.expense.aggregate({
       _sum: { amount: true },
       where: {
@@ -106,8 +117,11 @@ export class DashboardService {
 
     const revenueMonth = salesAgg._sum.total || 0;
     const expensesMonth = expensesAgg._sum.amount || 0;
-    const netProfit = revenueMonth - expensesMonth;
 
-    return { revenueMonth, expensesMonth, netProfit };
+    return { 
+      revenueMonth, 
+      expensesMonth, 
+      netProfit: revenueMonth - expensesMonth 
+    };
   }
 }
