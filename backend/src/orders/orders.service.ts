@@ -57,8 +57,8 @@ export class OrdersService {
     
     // 1. Aplica a taxa de 6% se for Cartão
     // Usamos o Enum do DTO para comparar, assim o TypeScript não reclama
-    if (paymentMethod === PaymentMethodDto.CARD) {
-      total *= 1.06; 
+    if (paymentMethod === PaymentMethodDto.CARTAO) {
+      total *= 1.06;
     }
 
     // 2. Mapeia do Enum do DTO (Português) para o Enum do Banco (Inglês)
@@ -81,7 +81,7 @@ export class OrdersService {
           observations: observations,
           clientId: clientId,
           deliveryDate: deliveryDate,
-          paymentMethod: methodForDb, // Usa a variável convertida
+          paymentMethod: methodForDb,
         },
       });
 

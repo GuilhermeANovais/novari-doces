@@ -6,14 +6,21 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors();
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
 
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true, //remove campos que não estão no DTO
-    forbidNonWhitelisted: true, //lança erro se campos extras forem enviados
-    transform: true, //transforma os tipos
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
   }));
 
-  await app.listen(3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+
+  console.log('🚀 Servidor a correr na porta: ${port}');
 }
 bootstrap();
