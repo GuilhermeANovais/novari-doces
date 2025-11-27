@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateOrderDto } from './dto/create-order.dto';
+// Adiciona PaymentMethodDto aos imports
+import { CreateOrderDto, PaymentMethodDto } from './dto/create-order.dto'; 
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { AuditService } from 'src/audit/audit.service';
-// Importamos o Enum do Prisma para garantir a tipagem correta
 import { PaymentMethod } from '@prisma/client';
 
 @Injectable()
@@ -13,11 +13,7 @@ export class OrdersService {
     private auditService: AuditService
   ) {}
 
-  /**
-   * Cria um novo Pedido
-   */
   async create(createOrderDto: CreateOrderDto, userId: number) {
-    // Desestrutura todos os campos, incluindo o novo paymentMethod
     const { items, clientId, observations, deliveryDate, paymentMethod } = createOrderDto;
 
     // 1. Validação dos Produtos
@@ -57,6 +53,24 @@ export class OrdersService {
       };
     });
 
+    // --- LÓGICA DE PAGAMENTO CORRIGIDA ---
+    
+    // 1. Aplica a taxa de 6% se for Cartão
+    // Usamos o Enum do DTO para comparar, assim o TypeScript não reclama
+    if (paymentMethod === PaymentMethodDto.CARD) {
+      total *= 1.06; 
+    }
+
+    // 2. Mapeia do Enum do DTO (Português) para o Enum do Banco (Inglês)
+    let methodForDb: PaymentMethod = PaymentMethod.PIX; // Default
+
+    if (paymentMethod === PaymentMethodDto.CARD) {
+      methodForDb = PaymentMethod.CARD;
+    } else if (paymentMethod === PaymentMethodDto.CASH) {
+      methodForDb = PaymentMethod.CASH;
+    }
+    // Se for PIX, já está no default.
+
     // 4. Transação de Criação
     const newOrder = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
@@ -67,8 +81,7 @@ export class OrdersService {
           observations: observations,
           clientId: clientId,
           deliveryDate: deliveryDate,
-          // Salva o método de pagamento (cast para o tipo do Prisma)
-          paymentMethod: paymentMethod as PaymentMethod,
+          paymentMethod: methodForDb, // Usa a variável convertida
         },
       });
 
@@ -85,20 +98,21 @@ export class OrdersService {
       });
     });
 
-    // Log de Auditoria da criação
+    // Log de Auditoria
     if (newOrder) {
       await this.auditService.createLog(
         userId,
         'CREATE',
         'Order',
         newOrder.id,
-        `Pedido criado. Total: R$ ${total}. Pagamento: ${paymentMethod || 'CASH'}`
+        `Pedido criado. Total: R$ ${total.toFixed(2)}. Pagamento: ${methodForDb}`
       );
     }
 
     return newOrder;
   }
 
+  // ... (manter findAll, findOne, update, remove iguais ao original)
   findAll() {
     return this.prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
@@ -125,14 +139,9 @@ export class OrdersService {
     });
   }
 
-  /**
-   * Atualiza um pedido e gera Log de Auditoria
-   */
   async update(id: number, updateOrderDto: UpdateOrderDto, userId: number) {
-    // 1. Busca dados antigos para comparar no log
     const oldOrder = await this.prisma.order.findUnique({ where: { id } });
 
-    // 2. Atualiza
     const updatedOrder = await this.prisma.order.update({
       where: { id: id },
       data: {
@@ -140,11 +149,9 @@ export class OrdersService {
         clientId: updateOrderDto.clientId,
         deliveryDate: updateOrderDto.deliveryDate,
         observations: updateOrderDto.observations,
-        // Se quiser permitir alterar o pagamento depois, adicione paymentMethod aqui também
       },
     });
 
-    // 3. Gera mensagem do Log
     let logMessage = 'Pedido atualizado.';
     if (oldOrder && oldOrder.status !== updatedOrder.status) {
       logMessage = `Status alterado de ${oldOrder.status} para ${updatedOrder.status}.`;
@@ -152,17 +159,12 @@ export class OrdersService {
       logMessage = 'Observações atualizadas.';
     }
 
-    // 4. Salva o Log
     await this.auditService.createLog(userId, 'UPDATE', 'Order', id, logMessage);
 
     return updatedOrder;
   }
 
-  /**
-   * Deleta um pedido e gera Log de Auditoria
-   */
   async remove(id: number, userId: number) {
-    // Busca dados antes de apagar para o log
     const orderToDelete = await this.prisma.order.findUnique({ where: { id } });
 
     await this.prisma.$transaction(async (tx) => {
@@ -170,7 +172,6 @@ export class OrdersService {
       await tx.order.delete({ where: { id: id } });
     });
 
-    // Salva o Log após sucesso
     await this.auditService.createLog(
       userId,
       'DELETE',

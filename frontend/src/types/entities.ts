@@ -47,3 +47,10 @@ export interface FullOrder {
   client?: Client | null;
   items: OrderItem[];
 }
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'USER'; // <--- Adicione
+}
