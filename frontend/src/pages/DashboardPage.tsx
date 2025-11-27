@@ -149,7 +149,7 @@ export function DashboardPage() {
         
         {/* Gráfico de Vendas */}
         <Grid item xs={12} lg={6}>
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3 }}>
+          <Paper elevation={0} sx={{ p: 3, height: 400, width: 750, border: '1px solid #e0e0e0', borderRadius: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Faturamento (7 Dias)</Typography>
             <ResponsiveContainer width="100%" height="85%">
               <LineChart data={stats?.salesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -163,29 +163,6 @@ export function DashboardPage() {
           </Paper>
         </Grid>
 
-        {/* Gráfico de Despesas */}
-        <Grid item xs={12} lg={6}>
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Despesas (30 Dias)</Typography>
-            <ResponsiveContainer width="100%" height="85%">
-              <AreaChart data={stats?.expensesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} dy={10} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
-                <Tooltip formatter={(value: number) => [formatCurrency(value), 'Despesas']} contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="amount" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Lista de Top Produtos (Substituindo o Gráfico de Pizza) */}
         <Grid item xs={12}>
           <Paper elevation={0} sx={{ p: 3, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>Top Produtos Mais Vendidos</Typography>
@@ -230,6 +207,31 @@ export function DashboardPage() {
             </List>
           </Paper>
         </Grid>
+
+        {/* Gráfico de Despesas */}
+        <Grid item xs={12} lg={6}>
+          <Paper elevation={0} sx={{ p: 3, height: 400, width: 750, border: '1px solid #e0e0e0', borderRadius: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Despesas (30 Dias)</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <AreaChart data={stats?.expensesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} dy={10} />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
+                <Tooltip formatter={(value: number) => [formatCurrency(value), 'Despesas']} contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                <Area type="monotone" dataKey="amount" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+
+        {/* Lista de Top Produtos (Substituindo o Gráfico de Pizza) */}
+        
 
       </Grid>
     </Box>
