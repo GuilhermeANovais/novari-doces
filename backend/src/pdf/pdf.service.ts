@@ -1,10 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as puppeteer from 'puppeteer';
-// Importamos os tipos do Prisma para garantir a tipagem correta
 import { Order, Client, OrderItem, Product } from '@prisma/client';
 
-// Definimos um tipo auxiliar para o pedido com todas as relações carregadas
 type FullOrderForPdf = Order & {
   client: Client | null;
   items: (OrderItem & {
@@ -16,21 +14,12 @@ type FullOrderForPdf = Order & {
 export class PdfService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Busca os dados do pedido e gera o HTML formatado.
-   * Retorna tanto o HTML quanto o objeto do pedido (para usar no nome do arquivo).
-   */
   async generateOrderHtml(orderId: number): Promise<{ html: string; order: FullOrderForPdf }> {
-    // 1. Busca o pedido completo no banco de dados
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
         client: true,
-        items: {
-          include: {
-            product: true,
-          },
-        },
+        items: { include: { product: true } },
       },
     });
 
@@ -38,120 +27,109 @@ export class PdfService {
       throw new NotFoundException('Pedido não encontrado');
     }
 
-    // 2. Formatação de Datas e Valores
     const createdDate = new Date(order.createdAt).toLocaleString('pt-BR');
+    
+    // Formata itens para o HTML
+    const itemsHtml = order.items.map(item => `
+      <div class="item-row">
+        <div class="item-name">${item.quantity}x ${item.product.name}</div>
+        <div class="item-price">R$ ${(item.quantity * item.price).toFixed(2)}</div>
+      </div>
+    `).join('');
 
-    // Formata a data de entrega (se existir)
-    const deliveryDateHtml = order.deliveryDate
-      ? `<p><b>Data de Entrega/Retirada:</b> ${new Date(order.deliveryDate).toLocaleString('pt-BR')}</p>`
-      : '';
-
-    // 3. Gera as linhas da tabela de itens (HTML)
-    const itemsHtml = order.items
-      .map(
-        (item) => `
-      <tr>
-        <td>${item.product.name}</td>
-        <td>${item.quantity}</td>
-        <td>R$ ${item.price.toFixed(2)}</td>
-        <td>R$ ${(item.quantity * item.price).toFixed(2)}</td>
-      </tr>
-    `,
-      )
-      .join('');
-
-    // 4. Monta o Template HTML Completo
+    // Template Estilo "Cupom Fiscal" (80mm)
     const html = `
       <html>
         <head>
           <meta charset="UTF-8">
           <style>
-            body { font-family: 'Inter', sans-serif; margin: 40px; color: #333; font-size: 14px; }
-            
-            /* Cabeçalho */
-            h1 { color: #1B5E20; margin-bottom: 5px; font-size: 24px; }
-            .header { margin-bottom: 30px; border-bottom: 2px solid #1B5E20; padding-bottom: 15px; }
-            .header p { margin: 5px 0; font-size: 14px; }
-            
-            /* Caixas de Detalhes (Cliente e Obs) */
-            .details-box { 
-              background-color: #f8f9fa; 
-              padding: 15px; 
-              border-radius: 8px; 
-              margin-bottom: 20px;
-              border-left: 5px solid #1B5E20;
+            /* Reset e Configurações Gerais */
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; /* Fonte monoespaçada fica melhor em impressoras térmicas */
+              font-size: 12px; 
+              color: #000;
+              width: 100%;
+              padding: 5px;
             }
-            .details-box h3 { margin-top: 0; margin-bottom: 10px; color: #1B5E20; font-size: 16px; }
-            .details-box p { margin: 5px 0; }
-
-            /* Tabela de Itens */
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
-            th { background-color: #1B5E20; color: white; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f2f2f2; }
             
-            /* Rodapé e Totais */
-            .total-section { margin-top: 30px; text-align: right; }
-            .total-label { font-size: 1.4em; margin-right: 15px; }
-            .total-value { font-size: 1.8em; font-weight: bold; color: #1B5E20; }
+            /* Utilitários */
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .bold { font-weight: bold; }
+            .divider { border-top: 1px dashed #000; margin: 10px 0; }
             
-            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 20px;}
+            /* Secções */
+            .header { margin-bottom: 10px; }
+            .brand { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+            
+            .info-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+            
+            /* Lista de Itens */
+            .items-container { margin: 10px 0; }
+            .item-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+            .item-name { flex: 1; margin-right: 10px; }
+            .item-price { white-space: nowrap; }
+            
+            /* Totais */
+            .total-section { margin-top: 10px; font-size: 14px; }
+            
+            /* Rodapé */
+            .footer { margin-top: 20px; text-align: center; font-size: 10px; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>Recibo do Pedido #${order.id}</h1>
-            <p><b>Data do Pedido:</b> ${createdDate}</p>
-            ${deliveryDateHtml}
-            <p><b>Status:</b> ${order.status}</p>
+          <div class="header text-center">
+            <div class="brand">CONFEITARIA HEAVEN</div>
+            <div>Pedido #${order.id}</div>
+            <div>${createdDate}</div>
           </div>
 
-          <div class="details-box">
-            <h3>Dados do Cliente</h3>
-            ${
-              order.client
-                ? `
-                <p><b>Nome:</b> ${order.client.name}</p>
-                <p><b>Telefone:</b> ${order.client.phone || '—'}</p>
-                <p><b>Endereço:</b> ${order.client.address || '—'}</p>
-              `
-                : '<p><i>Pedido interno (sem cliente associado ao cadastro)</i></p>'
-            }
+          <div class="divider"></div>
+
+          <div class="client-info">
+            <div class="bold">CLIENTE:</div>
+            <div>${order.client ? order.client.name : 'Consumidor Final'}</div>
+            ${order.client?.phone ? `<div>Tel: ${order.client.phone}</div>` : ''}
+            ${order.client?.address ? `<div>End: ${order.client.address}</div>` : ''}
           </div>
 
-          <h3>Itens do Pedido</h3>
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 50%">Produto</th>
-                <th style="width: 15%">Qtd.</th>
-                <th style="width: 15%">Unit.</th>
-                <th style="width: 20%">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-
-          ${
-            order.observations
-              ? `
-            <div class="details-box" style="margin-top: 25px; border-left-color: #00b8c5ff;">
-              <h3 style="color: #00b8c5ff;">Observações</h3>
-              <p>${order.observations}</p>
+          ${order.deliveryDate ? `
+            <div style="margin-top: 5px;">
+              <span class="bold">ENTREGA:</span> ${new Date(order.deliveryDate).toLocaleString('pt-BR')}
             </div>
-          `
-              : ''
-          }
-          
-          <div class="total-section">
-            <span class="total-label">Total a Pagar:</span>
-            <span class="total-value">R$ ${order.total.toFixed(2)}</span>
+          ` : ''}
+
+          <div class="divider"></div>
+
+          <div class="items-container">
+            ${itemsHtml}
           </div>
+
+          <div class="divider"></div>
+
+          <div class="total-section">
+            <div class="info-row">
+              <span>Forma Pagto:</span>
+              <span>${order.paymentMethod || '—'}</span>
+            </div>
+            <div class="info-row bold" style="font-size: 16px; margin-top: 5px;">
+              <span>TOTAL:</span>
+              <span>R$ ${order.total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          ${order.observations ? `
+            <div class="divider"></div>
+            <div style="font-size: 11px;">
+              <span class="bold">OBS:</span> ${order.observations}
+            </div>
+          ` : ''}
 
           <div class="footer">
             Obrigado pela preferência!
+            <br/>
+            www.confeitariaheaven.com.br
           </div>
         </body>
       </html>
@@ -160,35 +138,30 @@ export class PdfService {
     return { html, order };
   }
 
-  /**
-   * Gera o PDF a partir do HTML usando o Puppeteer.
-   * Retorna Uint8Array (compatível com versões novas do Puppeteer e com o res.send do Express)
-   */
   async generatePdfFromHtml(html: string): Promise<Uint8Array> {
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'], // Importante para rodar em alguns servidores
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const page = await browser.newPage();
-
-    // Define o conteúdo da página
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // Gera o PDF
+    // Configuração para Impressora Térmica (80mm)
     const pdfBuffer = await page.pdf({
-      format: 'A4',
+      width: '80mm', // Largura do papel
+      // Altura indefinida ou grande para simular rolo contínuo. 
+      // Se a impressora cortar errado, tenta fixar uma height (ex: '297mm') ou deixar auto.
       printBackground: true,
       margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm',
+        top: '5mm',
+        right: '2mm',
+        bottom: '5mm',
+        left: '2mm', // Margens pequenas para aproveitar o papel
       },
     });
 
     await browser.close();
-
     return pdfBuffer;
   }
 }

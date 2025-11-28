@@ -4,13 +4,13 @@ import {
   SelectChangeEvent, Snackbar, Alert, IconButton, Paper
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-// 1. Novos ícones Lucide
-import { Plus, Eye, Trash2, Pencil } from 'lucide-react';
+// 1. Adicionada a importação do Printer
+import { Plus, Eye, Trash2, Pencil, Printer } from 'lucide-react';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { OrderDetailsModal } from '../components/OrderDetailsModal';
-import { EditOrderModal } from '../components/EditOrderModal'; // Importe o modal de edição
+import { EditOrderModal } from '../components/EditOrderModal';
 import { OrderSummary } from '../types/entities';
 
 type SnackbarState = {
@@ -19,7 +19,6 @@ type SnackbarState = {
   severity: 'success' | 'error';
 } | null;
 
-// Interface estendida localmente caso entities.ts não tenha deliveryDate
 interface OrderWithDelivery extends OrderSummary {
   deliveryDate?: string | null;
 }
@@ -76,6 +75,41 @@ export function OrdersPage() {
       }
     }
   }, [fetchOrders]);
+
+  // --- Função de Impressão (NOVA) ---
+  const handlePrintOrder = async (id: number) => {
+    try {
+      // 1. Pede o PDF como BLOB
+      const response = await api.get(`/orders/${id}/pdf`, { responseType: 'blob' });
+      
+      // 2. Cria URL do PDF
+      const pdfUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      
+      // 3. Cria um iframe invisível para processar a impressão
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none'; // Esconde o iframe
+      iframe.src = pdfUrl;
+      document.body.appendChild(iframe);
+
+      // 4. Assim que carregar, manda imprimir e remove o iframe
+      iframe.onload = () => {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        }
+        
+        // Limpeza (espera 1 minuto para garantir que a impressão foi enviada para o spooler)
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+            window.URL.revokeObjectURL(pdfUrl);
+        }, 60000); 
+      };
+
+    } catch (error) {
+      console.error("Erro ao imprimir:", error);
+      setSnackbar({ open: true, message: 'Erro ao enviar para impressão.', severity: 'error' });
+    }
+  };
 
   const handleViewDetails = (id: number) => setSelectedOrderId(id);
   const handleCloseDetailsModal = () => setSelectedOrderId(null);
@@ -149,13 +183,23 @@ export function OrdersPage() {
     {
       field: 'actions',
       headerName: 'Ações',
-      width: 220,
+      width: 250, // Aumentado para caber o novo botão
       sortable: false,
       renderCell: (params) => {
         const statusValue = ['PENDENTE', 'CONCLUÍDO', 'CANCELADO', 'SINAL PAGO'].includes(params.row.status) ? params.row.status : 'PENDENTE';
         
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+             {/* NOVO: Botão de Imprimir */}
+             <IconButton
+              color="primary"
+              size="small"
+              onClick={() => handlePrintOrder(params.row.id)}
+              title="Imprimir Comprovante"
+            >
+              <Printer size={18} strokeWidth={1.5} />
+            </IconButton>
+
             {/* Ver Detalhes */}
             <IconButton
               color="default"
