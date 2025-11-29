@@ -64,26 +64,18 @@ export function DeliveryPage() {
   const handleSubmitStock = async () => {
     if (!selectedProduct || !amount) return;
     try {
-      // Se for Transferência, usa a rota que tira da cozinha
       if (modalType === 'TRANSFER') {
+        // Tira da Cozinha -> Põe no Delivery
         await api.post(`/products/${selectedProduct.id}/transfer`, { amount: parseInt(amount) });
-      } 
-      // Se for Entrada Manual (ex: Refri), precisamos de uma rota para adicionar direto no Delivery.
-      // Caso não tenhas criado a rota "addDeliveryStock" específica, podemos usar uma lógica de update ou 
-      // simular uma "transferência mágica". 
-      // Nota: Abaixo assumo que criaste ou vais criar a rota /delivery-entry no backend.
-      // Se não, usa /produce se quiseres que entre na cozinha e depois transfere.
-      else {
-        // Rota sugerida: Adicionar stock direto no delivery
-        // Se ainda não existir no backend, substitua por /produce e avise que entrou na cozinha primeiro.
-        // Vou usar /produce para garantir compatibilidade com o que tens, mas o ideal é /delivery-add
+      } else {
+        // NOVA ROTA: Adiciona direto no Delivery (Compra)
         await api.post(`/products/${selectedProduct.id}/delivery-add`, { amount: parseInt(amount) });
       }
       
       setModalOpen(false);
       fetchData(); 
     } catch (error) {
-      alert('Erro ao atualizar estoque. Verifique se há saldo na Cozinha (para transferências).');
+      alert('Erro ao atualizar estoque.');
     }
   };
 

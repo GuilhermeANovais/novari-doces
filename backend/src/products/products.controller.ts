@@ -1,21 +1,12 @@
-// src/products/products.controller.ts
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  ParseIntPipe,
-  UseGuards, // <-- 1. IMPORTAÇÃO ADICIONADA AQUI
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; // 2. Importe o guarda
+// CORREÇÃO AQUI: Importar do caminho relativo correto ./dto/...
+import { TransferStockDto } from './dto/transfer-stock.dto'; 
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard) // 3. Proteja todas as rotas
+@UseGuards(JwtAuthGuard)
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
@@ -36,15 +27,32 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateProductDto: UpdateProductDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() updateProductDto: UpdateProductDto) {
     return this.productsService.update(id, updateProductDto);
   }
 
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.productsService.remove(id);
+  }
+
+  // --- ROTAS DE ESTOQUE ---
+
+  // 1. Transferir: Cozinha -> Delivery
+  @Post(':id/transfer')
+  transfer(@Param('id', ParseIntPipe) id: number, @Body() dto: TransferStockDto) {
+    return this.productsService.transferToDelivery(id, dto.amount);
+  }
+
+  // 2. Produzir: Entrada na Cozinha
+  @Post(':id/produce')
+  produce(@Param('id', ParseIntPipe) id: number, @Body() dto: TransferStockDto) {
+    return this.productsService.addKitchenStock(id, dto.amount);
+  }
+
+  // 3. Compra Externa: Entrada Direta no Delivery
+  @Post(':id/delivery-add')
+  addDeliveryStock(@Param('id', ParseIntPipe) id: number, @Body() dto: TransferStockDto) {
+    return this.productsService.addDeliveryStock(id, dto.amount);
   }
 }
