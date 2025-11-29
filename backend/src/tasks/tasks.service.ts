@@ -1,6 +1,5 @@
-// src/tasks/tasks.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule'; // Removido CronExpression pois usamos string direta
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PdfService } from 'src/pdf/pdf.service';
 
@@ -13,32 +12,30 @@ export class TasksService {
     private pdfService: PdfService,
   ) {}
 
-  // Roda no dia 1 de cada mês à meia-noite (00:00:00)
+  // --- TAREFA 1: Fechamento Mensal (Dia 1 às 00:00) ---
   @Cron('0 0 1 * *') 
   async handleMonthlyClosing() {
     this.logger.log('Iniciando fechamento mensal automático...');
 
-    // 1. Determinar o mês anterior (o mês que acabou de fechar)
     const now = new Date();
-    // Se hoje é 01/12, queremos o relatório de 01/11 a 30/11
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0); // Dia 0 do mês atual = último do anterior
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    const month = startOfLastMonth.getMonth() + 1; // JS conta meses de 0-11
+    const month = startOfLastMonth.getMonth() + 1;
     const year = startOfLastMonth.getFullYear();
 
     this.logger.log(`Gerando relatório para: ${month}/${year}`);
 
-    // 2. Buscar Vendas do mês passado
+    // Buscar Vendas
     const salesAgg = await this.prisma.order.aggregate({
       _sum: { total: true },
       where: {
         createdAt: { gte: startOfLastMonth, lte: endOfLastMonth },
-        status: { not: 'CANCELADO' } // Importante: ignorar cancelados
+        status: { not: 'CANCELADO' }
       }
     });
 
-    // 3. Buscar Despesas do mês passado
+    // Buscar Despesas
     const expensesAgg = await this.prisma.expense.aggregate({
       _sum: { amount: true },
       where: {
@@ -50,8 +47,6 @@ export class TasksService {
     const expenses = expensesAgg._sum.amount || 0;
     const profit = revenue - expenses;
 
-    // 4. Gerar o HTML do Relatório (Você precisará criar esse método no PdfService)
-    // Vou simplificar aqui, mas a ideia é igual ao do Pedido
     const htmlContent = `
       <h1>Fechamento Mensal - ${month}/${year}</h1>
       <p><b>Faturamento:</b> R$ ${revenue.toFixed(2)}</p>
@@ -62,7 +57,6 @@ export class TasksService {
 
     const pdfBuffer = await this.pdfService.generatePdfFromHtml(htmlContent);
 
-    // 5. Salvar no Banco de Dados
     await this.prisma.monthlyReport.create({
       data: {
         month,
@@ -70,10 +64,26 @@ export class TasksService {
         totalRevenue: revenue,
         totalExpenses: expenses,
         netProfit: profit,
-        pdfData: Buffer.from(pdfBuffer), // Salva o arquivo
+        pdfData: Buffer.from(pdfBuffer),
       },
     });
 
     this.logger.log('Relatório mensal gerado e salvo com sucesso!');
+  }
+
+  // --- TAREFA 2: Limpeza do Mural (Diariamente às 21:00) ---
+  // Zera o mural no final do expediente.
+  @Cron('0 21 * * *')
+  async pruneNoticeBoard() {
+    this.logger.log('🧹 Executando limpeza diária do Mural (21:00)...');
+
+    // Remove TODOS os avisos (reset diário)
+    const { count } = await this.prisma.notice.deleteMany({});
+
+    if (count > 0) {
+      this.logger.log(`✅ Mural limpo: ${count} avisos foram removidos.`);
+    } else {
+      this.logger.log('✅ Mural verificado: Nenhum aviso para remover.');
+    }
   }
 }
