@@ -1,3 +1,4 @@
+// backend/src/orders/orders.controller.ts
 import {
   Controller,
   Get,
@@ -37,22 +38,25 @@ export class OrdersController {
     return this.ordersService.findAll();
   }
 
+  // --- NOVA ROTA DE DELIVERY ---
+  // (Importante: Deve vir ANTES de :id para não dar conflito)
+  @Get('delivery/daily')
+  getDeliveryStats() {
+    return this.ordersService.getDeliveryStats();
+  }
+
   // --- Endpoint de PDF ---
   @Get(':id/pdf')
   async getOrderPdf(
     @Param('id', ParseIntPipe) id: number,
     @Res() res: Response,
   ) {
-    // Desestrutura para pegar o HTML e os dados do pedido para o nome do arquivo
     const { html, order } = await this.pdfService.generateOrderHtml(id);
-    
     const pdfBuffer = await this.pdfService.generatePdfFromHtml(html);
 
-    // Formata a data para o nome do arquivo
     const date = new Date(order.createdAt);
     const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     
-    // Limpa o nome do cliente
     const clientName = (order.client?.name || 'Pedido_Interno').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `pedido_${order.id}_${clientName}_${dateString}.pdf`;
 
@@ -65,6 +69,7 @@ export class OrdersController {
     res.send(pdfBuffer);
   }
 
+  // As rotas com :id vêm sempre em baixo
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.ordersService.findOne(id);
@@ -74,17 +79,15 @@ export class OrdersController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateOrderDto: UpdateOrderDto,
-    @Request() req: any, // Pega o usuário logado
+    @Request() req: any,
   ) {
     const userId = req.user.userId;
-    // Passa o userId para o serviço (3 argumentos)
     return this.ordersService.update(id, updateOrderDto, userId);
   }
 
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     const userId = req.user.userId;
-    // Passa o userId para o serviço (2 argumentos)
     return this.ordersService.remove(id, userId);
   }
 }

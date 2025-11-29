@@ -24,8 +24,6 @@ export function LoginPage() {
   
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const from = location.state?.from?.pathname || "/";
-
   const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
     setLoginError(null);
     
@@ -35,10 +33,22 @@ export function LoginPage() {
         password: data.password,
       });
 
-      const token = response.data.access_token;
-      auth.login(token);
+      // Extraímos o token e os dados do utilizador (incluindo a role)
+      const { access_token, user } = response.data;
+      
+      // Guarda o token no contexto/localStorage
+      auth.login(access_token);
 
-      navigate(from, { replace: true });
+      // --- LÓGICA DE REDIRECIONAMENTO POR CARGO ---
+      // Decide a página inicial com base na permissão
+      if (user.role === 'DELIVERY') {
+        navigate('/delivery', { replace: true });
+      } else if (user.role === 'KITCHEN') {
+        navigate('/production', { replace: true });
+      } else {
+        // ADMIN ou outros cargos vão para o Dashboard principal
+        navigate('/', { replace: true });
+      }
 
     } catch (error) {
       console.error("Erro no login:", error);

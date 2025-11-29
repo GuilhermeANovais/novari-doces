@@ -13,6 +13,8 @@ import {
   AreaChart, Area
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+// NOVO: Importa o Mural
+import { NoticeBoard } from '../components/NoticeBoard';
 
 // --- Interfaces ---
 interface ChartData { date: string; amount: number; }
@@ -139,17 +141,17 @@ export function DashboardPage() {
         <StatCard 
           title="Lucro Líquido" 
           value={formatCurrency(stats?.netProfit || 0)} 
-          color={stats && stats.netProfit >= 0 ? "#00c7ceff" : "#dc2626"} // Verde se positivo, Vermelho se negativo
+          color={stats && stats.netProfit >= 0 ? "#00c7ce" : "#dc2626"} // Verde se positivo, Vermelho se negativo
           icon={<Wallet size={20} strokeWidth={2} />} 
         />
       </Grid>
 
-      {/* --- LINHA 3: Gráficos e Listas --- */}
+      {/* --- LINHA 3: Gráficos e Mural --- */}
       <Grid container spacing={3}>
         
         {/* Gráfico de Vendas */}
-        <Grid item xs={12} lg={6}>
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: 750, border: '1px solid #e0e0e0', borderRadius: 3 }}>
+        <Grid item xs={12} lg={8}>
+          <Paper elevation={0} sx={{ p: 3, height: 400, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Faturamento (7 Dias)</Typography>
             <ResponsiveContainer width="100%" height="85%">
               <LineChart data={stats?.salesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -161,56 +163,9 @@ export function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </Paper>
-        </Grid>
 
-        <Grid item xs={12}>
-          <Paper elevation={0} sx={{ p: 3, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>Top Produtos Mais Vendidos</Typography>
-            <List disablePadding>
-              {stats?.topProducts && stats.topProducts.length > 0 ? (
-                stats.topProducts.map((product, index) => (
-                  <ListItem 
-                    key={index} 
-                    divider={index < stats.topProducts.length - 1}
-                    sx={{ px: 1, py: 1.5 }}
-                  >
-                    {/* Ranking Number */}
-                    <Box 
-                      sx={{ 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: 32, height: 32, borderRadius: '50%', 
-                        bgcolor: index < 3 ? '#e8f5e9' : '#f5f5f5', 
-                        color: index < 3 ? '#1B5E20' : '#757575',
-                        mr: 2, fontWeight: 'bold', fontSize: '0.875rem'
-                      }}
-                    >
-                      {index + 1}
-                    </Box>
-                    
-                    <ListItemText 
-                      primary={product.name} 
-                      primaryTypographyProps={{ fontWeight: 500, color: '#333' }}
-                    />
-                    
-                    <Chip 
-                      label={`${product.value} un.`} 
-                      size="small" 
-                      sx={{ fontWeight: 'bold', bgcolor: '#f0fdf4', color: '#166534', borderRadius: 1.5 }} 
-                    />
-                  </ListItem>
-                ))
-              ) : (
-                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
-                  Nenhum dado de vendas disponível.
-                </Typography>
-              )}
-            </List>
-          </Paper>
-        </Grid>
-
-        {/* Gráfico de Despesas */}
-        <Grid item xs={12} lg={6}>
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: 750, border: '1px solid #e0e0e0', borderRadius: 3 }}>
+          {/* Gráfico de Despesas */}
+          <Paper elevation={0} sx={{ p: 3, height: 400, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Despesas (30 Dias)</Typography>
             <ResponsiveContainer width="100%" height="85%">
               <AreaChart data={stats?.expensesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -230,8 +185,53 @@ export function DashboardPage() {
           </Paper>
         </Grid>
 
-        {/* Lista de Top Produtos (Substituindo o Gráfico de Pizza) */}
-        
+        {/* COLUNA LATERAL: Top Produtos + MURAL DE AVISOS */}
+        <Grid item xs={12} lg={4}>
+          <Paper elevation={0} sx={{ p: 3, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>Top Produtos</Typography>
+            <List disablePadding>
+              {stats?.topProducts && stats.topProducts.length > 0 ? (
+                stats.topProducts.map((product, index) => (
+                  <ListItem 
+                    key={index} 
+                    divider={index < stats.topProducts.length - 1}
+                    sx={{ px: 1, py: 1.5 }}
+                  >
+                    <Box 
+                      sx={{ 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 32, height: 32, borderRadius: '50%', 
+                        bgcolor: index < 3 ? '#e8f5e9' : '#f5f5f5', 
+                        color: index < 3 ? '#1B5E20' : '#757575',
+                        mr: 2, fontWeight: 'bold', fontSize: '0.875rem'
+                      }}
+                    >
+                      {index + 1}
+                    </Box>
+                    <ListItemText 
+                      primary={product.name} 
+                      primaryTypographyProps={{ fontWeight: 500, color: '#333' }}
+                    />
+                    <Chip 
+                      label={`${product.value} un.`} 
+                      size="small" 
+                      sx={{ fontWeight: 'bold', bgcolor: '#f0fdf4', color: '#166534', borderRadius: 1.5 }} 
+                    />
+                  </ListItem>
+                ))
+              ) : (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
+                  Nenhum dado de vendas.
+                </Typography>
+              )}
+            </List>
+          </Paper>
+
+          {/* O NOVO MURAL DE AVISOS */}
+          <Box sx={{ height: 400 }}>
+            <NoticeBoard />
+          </Box>
+        </Grid>
 
       </Grid>
     </Box>

@@ -1,8 +1,7 @@
-// src/auth/auth.controller.ts
 import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { AuthGuard } from '@nestjs/passport'; // Ou o teu LocalAuthGuard personalizado
 
 @Controller('auth')
 export class AuthController {
@@ -10,16 +9,12 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() registerUserDto: RegisterUserDto) {
-    const user = await this.authService.register(registerUserDto);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...result } = user; 
-    return result;
+    return this.authService.register(registerUserDto);
   }
 
-  @UseGuards(AuthGuard('local')) // Usa o porteiro (LocalStrategy)
+  @UseGuards(AuthGuard('local'))
   @Post('login')
   async login(@Request() req: any) {
-    // Se a LocalStrategy passou, o 'req.user' contém o usuário validado
     return this.authService.login(req.user);
   }
 }
