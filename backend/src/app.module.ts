@@ -15,6 +15,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TasksService } from './tasks/tasks.service';
 import { ReportsModule } from './reports/reports.module';
 import { SearchModule } from './search/search.module';
+import { NoticesModule } from './notices/notices.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { SearchModule } from './search/search.module';
     ExpensesModule,
     ReportsModule,
     SearchModule,
+    NoticesModule,
   ],
   controllers: [AppController],
   providers: [AppService, PdfService, TasksService],

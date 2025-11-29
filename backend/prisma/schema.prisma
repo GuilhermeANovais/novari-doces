@@ -15,6 +15,12 @@ enum PaymentMethod {
   CARTAO
 }
 
+enum Role {
+  ADMIN
+  COZINHA
+  DELIVERY
+}
+
 model Client {
   id        Int       @id @default(autoincrement())
   name      String
@@ -34,11 +40,15 @@ model User {
   email     String     @unique
   name      String?
   password  String
+
+  role      Role       @default(COZINHA)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   orders    Order[]
+
   auditLogs AuditLog[]
   expenses  Expense[]
+  notices   Notice[]
 }
 
 model AuditLog {
@@ -55,12 +65,14 @@ model AuditLog {
 
 //produtos
 model Product {
-  id          Int         @id @default(autoincrement())
-  name        String
-  price       Float
-  description String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id           Int         @id @default(autoincrement())
+  name         String
+  price        Float
+  description  String?
+  stockKitchen  Int         @default(0)
+  stockDelivery Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   orderItems  OrderItem[]
 }
 
@@ -122,4 +134,14 @@ model MonthlyReport {
   netProfit     Float
   pdfData       Bytes
   createdAt     DateTime @default(now())
+}
+
+model Notice {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
 }

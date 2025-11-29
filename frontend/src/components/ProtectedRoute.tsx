@@ -1,23 +1,28 @@
-// src/components/ProtectedRoute.tsx
-import { ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Navigate, useLocation } from 'react-router-dom';
 
 interface ProtectedRouteProps {
-  children: ReactNode;
+  children: JSX.Element;
+  allowedRoles?: string[]; // Novo: Lista de cargos permitidos
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const auth = useAuth();
-  const location = useLocation();
+export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+  const { user, isAuthenticated } = useAuth();
 
-  // Se não estiver autenticado, redireciona para o login
-  if (!auth.isAuthenticated) {
-    // 'replace' impede que o usuário volte para a rota protegida usando o botão "Voltar"
-    // 'state' guarda a origem para redirecionar de volta após o login
-    return <Navigate to="/login" replace state={{ from: location }} />;
+  // 1. Verifica se está logado
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
   }
 
-  // Se estiver autenticado, renderiza o conteúdo (DashboardLayout)
-  return <>{children}</>;
+  // 2. Verifica se tem o cargo correto (se a rota exigir restrição)
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    // Se tentar aceder a algo proibido, redireciona para a "casa" do cargo dele
+    if (user.role === 'DELIVERY') return <Navigate to="/delivery" />;
+    if (user.role === 'KITCHEN') return <Navigate to="/production" />;
+    
+    // Fallback para admin ou outros
+    return <Navigate to="/" />;
+  }
+
+  return children;
 }
