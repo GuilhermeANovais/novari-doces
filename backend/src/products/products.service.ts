@@ -49,4 +49,38 @@ export class ProductsService {
       where: { id: id },
     });
   }
+
+  async transferToDelivery(id: number, amount: number) {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    
+    if (!product) throw new BadRequestException('Produto não encontrado');
+    if (product.stockKitchen < amount) {
+      throw new BadRequestException(`Estoque da Cozinha insuficiente (${product.stockKitchen})`);
+    }
+
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        stockKitchen: { decrement: amount },
+        stockDelivery: { increment: amount },
+      },
+    });
+  }
+
+  // 2. Adicionar na Cozinha (Produção)
+  async addKitchenStock(id: number, amount: number) {
+    return this.prisma.product.update({
+      where: { id },
+      data: { stockKitchen: { increment: amount } },
+    });
+  }
+
+  // 3. Adicionar no Delivery (Compra Externa / Refrigerantes)
+  async addDeliveryStock(id: number, amount: number) {
+    return this.prisma.product.update({
+      where: { id },
+      data: { stockDelivery: { increment: amount } },
+    });
+  }
 }
+
