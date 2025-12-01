@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule'; // Removido CronExpression pois usamos string direta
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PdfService } from 'src/pdf/pdf.service';
 
@@ -12,8 +12,10 @@ export class TasksService {
     private pdfService: PdfService,
   ) {}
 
-  // --- TAREFA 1: Fechamento Mensal (Dia 1 às 00:00) ---
-  @Cron('0 0 1 * *') 
+  // --- TAREFA 1: Fechamento Mensal (Dia 1 às 00:00 BRT) ---
+  @Cron('0 0 1 * *', {
+    timeZone: 'America/Sao_Paulo', // Garante que roda à meia-noite do Brasil
+  })
   async handleMonthlyClosing() {
     this.logger.log('Iniciando fechamento mensal automático...');
 
@@ -71,11 +73,12 @@ export class TasksService {
     this.logger.log('Relatório mensal gerado e salvo com sucesso!');
   }
 
-  // --- TAREFA 2: Limpeza do Mural (Diariamente às 21:00) ---
-  // Zera o mural no final do expediente.
-  @Cron('0 21 * * *')
+  // --- TAREFA 2: Limpeza do Mural (Todos os dias às 21:00 BRT) ---
+  @Cron('0 21 * * *', {
+    timeZone: 'America/Sao_Paulo', // <--- A CORREÇÃO ESTÁ AQUI
+  })
   async pruneNoticeBoard() {
-    this.logger.log('🧹 Executando limpeza diária do Mural (21:00)...');
+    this.logger.log('🧹 Executando limpeza diária do Mural (21:00 BRT)...');
 
     // Remove TODOS os avisos (reset diário)
     const { count } = await this.prisma.notice.deleteMany({});

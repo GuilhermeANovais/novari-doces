@@ -145,7 +145,12 @@ export function NewOrderPage() {
 
     } catch (error) {
       console.error("Erro ao finalizar pedido:", error);
-      setSnackbar({ open: true, message: 'Erro ao finalizar pedido.', severity: 'error' });
+      
+      const errorMessage = error.response.data?.message || 'Erro ao finalziar pedido';
+
+      setSnackbar({ 
+        open: true, 
+        message: errorMessage, severity: 'error' });
     } finally {
       setIsSubmitting(false);
     }
