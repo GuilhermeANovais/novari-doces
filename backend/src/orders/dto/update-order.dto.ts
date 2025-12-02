@@ -1,30 +1,22 @@
-// src/orders/dto/update-order.dto.ts
-import { IsString, IsOptional, IsInt, IsDateString, IsIn } from 'class-validator';
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateOrderDto, PaymentMethodDto } from './create-order.dto';
+import { IsOptional, IsArray, ValidateNested, IsEnum, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateOrderItemDto } from './create-order-item.dto';
 
-const validStatus = [
-  'PENDENTE',
-  'EM_PREPARO',
-  'PRONTO',
-  'CONCLUÍDO',
-  'CANCELADO',
-  'SINAL_PAGO',
-];
-
-export class UpdateOrderDto {
-  @IsString()
+export class UpdateOrderDto extends PartialType(CreateOrderDto) {
+  // --- ADICIONADO: Campo Status ---
   @IsOptional()
-  @IsIn(validStatus, { message: 'Status inválido.' })
+  @IsString()
   status?: string;
 
-  @IsInt()
   @IsOptional()
-  clientId?: number;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items?: CreateOrderItemDto[];
 
-  @IsDateString()
   @IsOptional()
-  deliveryDate?: string;
-
-  @IsString()
-  @IsOptional()
-  observations?: string;
+  @IsEnum(PaymentMethodDto)
+  paymentMethod?: PaymentMethodDto;
 }

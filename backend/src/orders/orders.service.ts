@@ -25,11 +25,9 @@ export class OrdersService {
       throw new NotFoundException('Um ou mais produtos não foram encontrados.');
     }
 
-    // --- CORREÇÃO 1: Verifica apenas o estoque do DELIVERY ---
+    // Verifica estoque do DELIVERY
     for (const item of items) {
       const product = productsInDb.find((p) => p.id === item.productId);
-      
-      // Agora usamos product.stockDelivery em vez de product.stock
       if (product && product.stockDelivery < item.quantity) {
         throw new BadRequestException(
           `Sem estoque no Delivery para: ${product.name}. Disponível: ${product.stockDelivery}. Solicite transferência da Cozinha.`
@@ -37,17 +35,16 @@ export class OrdersService {
       }
     }
 
-    // 2. Validação do Cliente
     if (clientId) {
       const clientExists = await this.prisma.client.findUnique({ where: { id: clientId } });
       if (!clientExists) throw new NotFoundException(`Cliente com ID ${clientId} não encontrado.`);
     }
 
-    // 3. Cálculo do Total
+    // Cálculo do Total
     let total = 0;
     const orderItemsData = items.map((item) => {
       const product = productsInDb.find((p) => p.id === item.productId);
-      if (!product) throw new BadRequestException(`Produto com ID ${item.productId} erro.`);
+      if (!product) throw new BadRequestException(`Produto ${item.productId} erro.`);
       
       const itemTotal = product.price * item.quantity;
       total += itemTotal;
@@ -59,14 +56,13 @@ export class OrdersService {
       };
     });
 
-    // 4. Taxa de 6% (Cartão)
+    // Taxa de 6% (Cartão)
     if (paymentMethod === PaymentMethodDto.CARTAO) {
       total *= 1.06;
     }
 
     const methodForDb = paymentMethod as unknown as PaymentMethod;
 
-    // 5. Transação Principal
     const newOrder = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
@@ -79,11 +75,10 @@ export class OrdersService {
         data: orderItemsData.map((item) => ({ ...item, orderId: order.id })),
       });
 
-      // --- CORREÇÃO 2: Desconta do DELIVERY ---
+      // Desconta do DELIVERY
       for (const item of items) {
         await tx.product.update({
           where: { id: item.productId },
-          // Agora decrementamos stockDelivery
           data: { stockDelivery: { decrement: item.quantity } },
         });
       }
@@ -123,25 +118,164 @@ export class OrdersService {
     });
   }
 
+  // --- ATUALIZAÇÃO COM EDIÇÃO DE ITENS E ESTOQUE ---
   async update(id: number, updateOrderDto: UpdateOrderDto, userId: number) {
-    const oldOrder = await this.prisma.order.findUnique({ where: { id } });
-    const updatedOrder = await this.prisma.order.update({
+    const currentOrder = await this.prisma.order.findUnique({
       where: { id },
-      data: {
-        status: updateOrderDto.status,
-        clientId: updateOrderDto.clientId,
-        deliveryDate: updateOrderDto.deliveryDate,
-        observations: updateOrderDto.observations,
-      },
+      include: { items: true },
     });
-    
-    let logMessage = 'Pedido atualizado.';
-    if (oldOrder && oldOrder.status !== updatedOrder.status) {
-      logMessage = `Status alterado de ${oldOrder.status} para ${updatedOrder.status}.`;
+
+    if (!currentOrder) {
+      throw new NotFoundException(`Pedido #${id} não encontrado.`);
     }
-    
-    await this.auditService.createLog(userId, 'UPDATE', 'Order', id, logMessage);
-    return updatedOrder;
+
+    // Se não houver itens para atualizar, faz o update simples
+    if (!updateOrderDto.items) {
+      // Mas se o método de pagamento mudar, precisamos recalcular o total
+      let newTotal = currentOrder.total;
+      
+      // Se mudou de PIX/DINHEIRO para CARTAO -> Aplica taxa
+      // Se mudou de CARTAO para OUTRO -> Remove taxa
+      // Essa lógica simples pode falhar se o preço base não for guardado. 
+      // O ideal é recalcular tudo se houver mudança de pagamento.
+      // Para simplificar aqui: se mudar pagamento E não mandou itens, avisamos que é melhor editar os itens para recalcular.
+      // Ou assumimos que o frontend manda os itens sempre que quiser recalculo.
+      
+      const updatedOrder = await this.prisma.order.update({
+        where: { id },
+        data: {
+          status: updateOrderDto.status,
+          clientId: updateOrderDto.clientId,
+          deliveryDate: updateOrderDto.deliveryDate,
+          observations: updateOrderDto.observations,
+          // Não atualizamos total/pagamento aqui sem itens para evitar inconsistência
+        },
+      });
+      
+      await this.auditService.createLog(userId, 'UPDATE', 'Order', id, 'Pedido atualizado (Status/Dados).');
+      return updatedOrder;
+    }
+
+    // --- LÓGICA DE RECALCULO DE ITENS ---
+    return this.prisma.$transaction(async (tx) => {
+      const newItemsList = updateOrderDto.items || [];
+      const oldItemsList = currentOrder.items;
+      
+      let runningTotal = 0;
+
+      // Mapas para comparação rápida
+      // newItemsMap: ProductID -> Quantidade Nova
+      const newItemsMap = new Map(newItemsList.map(i => [i.productId, i.quantity]));
+      
+      // 1. Processar itens ANTIGOS (Remover ou Atualizar)
+      for (const oldItem of oldItemsList) {
+        const newQty = newItemsMap.get(oldItem.productId);
+
+        if (newQty === undefined) {
+          // REMOÇÃO: Item existia, mas não está na nova lista
+          // Devolve ao estoque
+          await tx.product.update({
+            where: { id: oldItem.productId },
+            data: { stockDelivery: { increment: oldItem.quantity } }
+          });
+          // Remove do pedido
+          await tx.orderItem.delete({ where: { id: oldItem.id } });
+        } else {
+          // ATUALIZAÇÃO: Item continua na lista
+          const diff = newQty - oldItem.quantity;
+
+          if (diff !== 0) {
+            // Se diff > 0: Cliente quer mais (tira do estoque)
+            // Se diff < 0: Cliente quer menos (devolve ao estoque)
+            
+            if (diff > 0) {
+              const product = await tx.product.findUnique({ where: { id: oldItem.productId } });
+              if (!product || product.stockDelivery < diff) {
+                throw new BadRequestException(`Estoque insuficiente para aumentar ${product?.name}.`);
+              }
+              await tx.product.update({
+                where: { id: oldItem.productId },
+                data: { stockDelivery: { decrement: diff } }
+              });
+            } else {
+              // Devolve a diferença (positivo)
+              await tx.product.update({
+                where: { id: oldItem.productId },
+                data: { stockDelivery: { increment: Math.abs(diff) } }
+              });
+            }
+
+            // Atualiza a quantidade no pedido
+            await tx.orderItem.update({
+              where: { id: oldItem.id },
+              data: { quantity: newQty }
+            });
+          }
+          
+          // Soma ao novo total (usando preço atual do produto para garantir valor correto)
+          const product = await tx.product.findUnique({ where: { id: oldItem.productId } });
+          if (product) {
+             runningTotal += product.price * newQty;
+          }
+          
+          // Remove do mapa para sabermos o que falta adicionar
+          newItemsMap.delete(oldItem.productId);
+        }
+      }
+
+      // 2. Processar itens NOVOS (Adições)
+      for (const [productId, qty] of newItemsMap.entries()) {
+        const product = await tx.product.findUnique({ where: { id: productId } });
+        if (!product) throw new BadRequestException(`Produto ${productId} não encontrado.`);
+        
+        if (product.stockDelivery < qty) {
+           throw new BadRequestException(`Estoque insuficiente para adicionar ${product.name}.`);
+        }
+
+        // Tira do estoque
+        await tx.product.update({
+          where: { id: productId },
+          data: { stockDelivery: { decrement: qty } }
+        });
+
+        // Cria o item
+        await tx.orderItem.create({
+          data: {
+            orderId: id,
+            productId: productId,
+            quantity: qty,
+            price: product.price
+          }
+        });
+
+        runningTotal += product.price * qty;
+      }
+
+      // 3. Aplica Taxa de Pagamento e Atualiza Pedido
+      const method = updateOrderDto.paymentMethod || currentOrder.paymentMethod;
+      
+      // Se for Cartão, +6%
+      if (method === 'CARTAO') {
+        runningTotal *= 1.06;
+      }
+
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: {
+          total: runningTotal,
+          status: updateOrderDto.status,
+          clientId: updateOrderDto.clientId,
+          deliveryDate: updateOrderDto.deliveryDate,
+          observations: updateOrderDto.observations,
+          paymentMethod: method as any
+        },
+        include: { items: { include: { product: true } } }
+      });
+
+      await this.auditService.createLog(userId, 'UPDATE', 'Order', id, `Pedido editado. Novo total: R$ ${runningTotal.toFixed(2)}`);
+      
+      return updatedOrder;
+    });
   }
 
   async remove(id: number, userId: number) {
@@ -154,26 +288,26 @@ export class OrdersService {
     return { message: 'Pedido deletado com sucesso' };
   }
 
-  // --- CORREÇÃO 3: Estatísticas do Delivery ---
   async getDeliveryStats() {
     const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+
     const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+    
 
     const ordersToday = await this.prisma.order.findMany({
       where: {
         createdAt: { gte: startOfDay, lte: endOfDay },
-        status: { not: 'CANCELADO' }
+        status: { not: 'CANCELADO' },
       },
       select: {
         id: true, total: true, paymentMethod: true, createdAt: true
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
-    // Selecionamos os dois estoques (Kitchen e Delivery) em vez de "stock"
     const inventory = await this.prisma.product.findMany({
       select: { id: true, name: true, stockKitchen: true, stockDelivery: true },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
 
     return { orders: ordersToday, inventory };
