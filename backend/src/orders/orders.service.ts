@@ -1,9 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderDto, PaymentMethodDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { AuditService } from 'src/audit/audit.service';
-// Importamos o Enum do Prisma para garantir a tipagem correta
 import { PaymentMethod } from '@prisma/client';
 
 @Injectable()
@@ -13,87 +12,57 @@ export class OrdersService {
     private auditService: AuditService
   ) {}
 
-  /**
-   * Cria um novo Pedido
-   */
   async create(createOrderDto: CreateOrderDto, userId: number) {
-    // Desestrutura todos os campos, incluindo o novo paymentMethod
-    const { items, clientId, observations, deliveryDate, paymentMethod } = createOrderDto;
+    const { items, clientId, observations, paymentMethod } = createOrderDto;
 
-    // 1. Validação dos Produtos
+    // 1. Validar produtos
     const productIds = items.map((item) => item.productId);
-    const productsInDb = await this.prisma.product.findMany({
-      where: { id: { in: productIds } },
-    });
-
+    const productsInDb = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
     if (productsInDb.length !== productIds.length) {
-      throw new NotFoundException('Um ou mais produtos não foram encontrados.');
+      throw new NotFoundException('Produtos não encontrados.');
     }
 
-    // 2. Validação do Cliente
+    // 2. Validar Cliente
     if (clientId) {
-      const clientExists = await this.prisma.client.findUnique({
-        where: { id: clientId },
-      });
-      if (!clientExists) {
-        throw new NotFoundException(`Cliente com ID ${clientId} não encontrado.`);
-      }
+      const exists = await this.prisma.client.findUnique({ where: { id: clientId } });
+      if (!exists) throw new NotFoundException('Cliente não encontrado.');
     }
 
-    // 3. Cálculo do Total
+    // 3. Calcular Total
     let total = 0;
     const orderItemsData = items.map((item) => {
       const product = productsInDb.find((p) => p.id === item.productId);
-      if (!product) {
-        throw new BadRequestException(`Produto com ID ${item.productId} não encontrado.`);
-      }
-      const itemTotal = product.price * item.quantity;
-      total += itemTotal;
-
-      return {
-        productId: item.productId,
-        quantity: item.quantity,
-        price: product.price,
-      };
+      if (!product) throw new BadRequestException(`Produto erro.`);
+      total += product.price * item.quantity;
+      return { productId: item.productId, quantity: item.quantity, price: product.price };
     });
 
-    // 4. Transação de Criação
+    if (paymentMethod === PaymentMethodDto.CARTAO) total *= 1.06;
+
+    const methodForDb = paymentMethod as unknown as PaymentMethod;
+
+    // 4. Criar Pedido
     const newOrder = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
-          userId: userId,
-          total: total,
+          userId,
+          total,
           status: 'PENDENTE',
-          observations: observations,
-          clientId: clientId,
-          deliveryDate: deliveryDate,
-          // Salva o método de pagamento (cast para o tipo do Prisma)
-          paymentMethod: paymentMethod as PaymentMethod,
+          observations,
+          clientId,
+          paymentMethod: methodForDb,
         },
       });
 
       await tx.orderItem.createMany({
-        data: orderItemsData.map((item) => ({
-          ...item,
-          orderId: order.id,
-        })),
+        data: orderItemsData.map((item) => ({ ...item, orderId: order.id })),
       });
 
-      return tx.order.findUnique({
-        where: { id: order.id },
-        include: { items: true, client: true },
-      });
+      return tx.order.findUnique({ where: { id: order.id }, include: { items: true, client: true } });
     });
 
-    // Log de Auditoria da criação
     if (newOrder) {
-      await this.auditService.createLog(
-        userId,
-        'CREATE',
-        'Order',
-        newOrder.id,
-        `Pedido criado. Total: R$ ${total}. Pagamento: ${paymentMethod || 'CASH'}`
-      );
+      await this.auditService.createLog(userId, 'CREATE', 'Order', newOrder.id, `Pedido criado. R$ ${total.toFixed(2)}`);
     }
 
     return newOrder;
@@ -105,9 +74,7 @@ export class OrdersService {
       include: {
         user: { select: { name: true, email: true } },
         client: { select: { name: true, phone: true } },
-        items: {
-          include: { product: { select: { name: true } } }
-        }
+        items: { include: { product: true } }
       }
     });
   }
@@ -118,67 +85,36 @@ export class OrdersService {
       include: {
         user: { select: { name: true, email: true } },
         client: { select: { name: true, phone: true, address: true } },
-        items: {
-          include: { product: { select: { name: true, price: true } } }
-        }
+        items: { include: { product: { select: { name: true, price: true } } } }
       }
     });
   }
 
-  /**
-   * Atualiza um pedido e gera Log de Auditoria
-   */
   async update(id: number, updateOrderDto: UpdateOrderDto, userId: number) {
-    // 1. Busca dados antigos para comparar no log
-    const oldOrder = await this.prisma.order.findUnique({ where: { id } });
+    const currentOrder = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    if (!currentOrder) throw new NotFoundException(`Pedido #${id} não encontrado.`);
 
-    // 2. Atualiza
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: id },
+    // Lógica simplificada de atualização (sem recalculo complexo de estoque por enquanto, já que removeu delivery)
+    // Se quiseres reativar a edição de itens, podes usar a lógica anterior, mas simplificada.
+    
+    // Atualização básica
+    const updated = await this.prisma.order.update({
+      where: { id },
       data: {
         status: updateOrderDto.status,
         clientId: updateOrderDto.clientId,
-        deliveryDate: updateOrderDto.deliveryDate,
         observations: updateOrderDto.observations,
-        // Se quiser permitir alterar o pagamento depois, adicione paymentMethod aqui também
       },
     });
 
-    // 3. Gera mensagem do Log
-    let logMessage = 'Pedido atualizado.';
-    if (oldOrder && oldOrder.status !== updatedOrder.status) {
-      logMessage = `Status alterado de ${oldOrder.status} para ${updatedOrder.status}.`;
-    } else if (updateOrderDto.observations) {
-      logMessage = 'Observações atualizadas.';
-    }
-
-    // 4. Salva o Log
-    await this.auditService.createLog(userId, 'UPDATE', 'Order', id, logMessage);
-
-    return updatedOrder;
+    await this.auditService.createLog(userId, 'UPDATE', 'Order', id, 'Pedido atualizado.');
+    return updated;
   }
 
-  /**
-   * Deleta um pedido e gera Log de Auditoria
-   */
   async remove(id: number, userId: number) {
-    // Busca dados antes de apagar para o log
-    const orderToDelete = await this.prisma.order.findUnique({ where: { id } });
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.orderItem.deleteMany({ where: { orderId: id } });
-      await tx.order.delete({ where: { id: id } });
-    });
-
-    // Salva o Log após sucesso
-    await this.auditService.createLog(
-      userId,
-      'DELETE',
-      'Order',
-      id,
-      `Pedido de R$ ${orderToDelete?.total} deletado.`,
-    );
-
-    return { message: 'Pedido deletado com sucesso' };
+    await this.prisma.orderItem.deleteMany({ where: { orderId: id } });
+    await this.prisma.order.delete({ where: { id } });
+    await this.auditService.createLog(userId, 'DELETE', 'Order', id, 'Pedido deletado.');
+    return { message: 'Sucesso' };
   }
 }

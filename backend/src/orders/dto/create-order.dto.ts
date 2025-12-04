@@ -14,8 +14,8 @@ import { IsEnum } from 'class-validator'
 
 export enum PaymentMethodDto {
   PIX = 'PIX',
-  CASH = 'DINHEIRO',
-  CARD = 'CARTÃO',
+  DINHEIRO = 'DINHEIRO',
+  CARTAO = 'CARTÃO',
 }
 
 export class CreateOrderDto {

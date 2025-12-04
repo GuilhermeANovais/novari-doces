@@ -69,6 +69,8 @@ model Product {
   name         String
   price        Float
   description  String?
+  stockKitchen  Int         @default(0)
+  stockDelivery Int         @default(0)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   orderItems  OrderItem[]
@@ -94,6 +96,8 @@ model Order {
   status       String   @default("PENDENTE")
   total        Float
   observations String?
+
+  deliveryDate DateTime?
 
   paymentMethod PaymentMethod? @default(PIX)
 

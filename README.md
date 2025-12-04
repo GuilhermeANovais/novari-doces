@@ -50,4 +50,18 @@ O projeto é composto por um **backend em NestJS + Prisma** e um **frontend em V
 - Lista de clientes com filtros.
 - Visualização rápida dos pedidos feitos por cada cliente.
 
+### 👳 **Kanban de Produção**
+- Tela de alteração de pedido de forma veloz.
+- Lista os pedidos em "A Fazer 📋", "No Forno 🔥", "Pronto 🎁" e "Entregue ✅".
+
+### 🗓️ **Calendário**
+- Data e horário de entrega
+
+### 💵 **Reporte Mensal**
+- Funcionalidade que traz um reporte mensal de pedidos, lucro, despesas e a média entre os períodos
+
+### 🔎 **Auditoria**
+- Registra o que cada funcionário fez.
+- Registra "Delete", "Update", "Create"
+
 ---
