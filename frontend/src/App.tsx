@@ -126,7 +126,7 @@ function DashboardLayout() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{ bgcolor: '#1B5E20', color: 'white', p: 0.5, borderRadius: 1, display: 'flex' }}><ChefHat size={24} strokeWidth={1.5} /></Box>
               <Typography variant="h6" noWrap sx={{ fontWeight: 'bold', letterSpacing: '-0.5px', color: '#111827', display: { xs: 'none', md: 'block' } }}>
-                Confeitaria Novari
+                Heaven Dashboard
               </Typography>
             </Box>
           </Box>
