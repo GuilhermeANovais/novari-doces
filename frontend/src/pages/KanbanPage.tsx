@@ -179,8 +179,8 @@ export function KanbanPage() {
                               </Box>
                               
                               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                {order.items.length} Itens • R$ {order.total.toFixed(2)}
-                              </Typography>
+                              {order.items.length} Itens • R$ {Number(order.total).toFixed(2)}
+                            </Typography>
 
                               {order.deliveryDate && (
                                 <Chip 
