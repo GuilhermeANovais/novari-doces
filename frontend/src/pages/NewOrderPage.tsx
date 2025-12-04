@@ -43,7 +43,7 @@ export function NewOrderPage() {
   const [selectedClientId, setSelectedClientId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
@@ -137,7 +137,7 @@ export function NewOrderPage() {
       setObservations('');
       setSelectedClientId('');
       setDeliveryDate('');
-      setPaymentMethod('CASH');
+      setPaymentMethod('DINHEIRO');
 
       setTimeout(() => {
         navigate('/orders');

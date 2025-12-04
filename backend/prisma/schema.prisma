@@ -67,7 +67,7 @@ model AuditLog {
 model Product {
   id           Int         @id @default(autoincrement())
   name         String
-  price        Float
+  price        Decimal
   description  String?
   stockKitchen  Int         @default(0)
   stockDelivery Int         @default(0)
@@ -81,7 +81,7 @@ model Product {
 model OrderItem {
   id        Int     @id @default(autoincrement())
   quantity  Int
-  price     Float
+  price     Decimal
   order     Order   @relation(fields: [orderId], references: [id])
   orderId   Int
   product   Product @relation(fields: [productId], references: [id])
@@ -94,7 +94,7 @@ model Order {
   id           Int      @id @default(autoincrement())
   createdAt    DateTime @default(now())
   status       String   @default("PENDENTE")
-  total        Float
+  total        Decimal
   observations String?
 
   deliveryDate DateTime?
@@ -112,7 +112,7 @@ model Order {
 model Expense {
   id          Int      @id @default(autoincrement())
   description String
-  amount      Float
+  amount      Decimal
   date        DateTime @default(now())
   category    String?
 
@@ -129,9 +129,9 @@ model MonthlyReport {
   id            Int      @id @default(autoincrement())
   month         Int
   year          Int
-  totalRevenue  Float
-  totalExpenses Float
-  netProfit     Float
+  totalRevenue  Decimal
+  totalExpenses Decimal
+  netProfit     Decimal
   pdfData       Bytes
   createdAt     DateTime @default(now())
 }
