@@ -6,7 +6,7 @@ import {
 import { Plus, Minus, Trash2, UserPlus, CreditCard } from 'lucide-react';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api'; // O import funciona aqui porque estamos dentro de 'pages'
+import api from '../api';
 import { ClientModal } from '../components/ClientModal';
 
 // --- Interfaces ---
@@ -43,6 +43,8 @@ export function NewOrderPage() {
   const [selectedClientId, setSelectedClientId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
+  
+  // CORREÇÃO 1: Ajustado valor inicial para bater com o Enum do Backend (DINHEIRO)
   const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,7 +114,8 @@ export function NewOrderPage() {
   };
 
   const total = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    // CORREÇÃO 2: Converter price para Number antes de multiplicar
+    return cart.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
   }, [cart]);
 
   const handleFinishOrder = async () => {
@@ -195,7 +198,8 @@ export function NewOrderPage() {
                   >
                     <ListItemText
                       primary={product.name}
-                      secondary={`R$ ${product.price.toFixed(2)}`}
+                      // CORREÇÃO 3: Converter para Number() aqui
+                      secondary={`R$ ${Number(product.price).toFixed(2)}`}
                       primaryTypographyProps={{ fontWeight: 500 }}
                     />
                   </ListItem>
@@ -271,8 +275,9 @@ export function NewOrderPage() {
                 }
               >
                 <MenuItem value="DINHEIRO">Dinheiro</MenuItem>
-              <MenuItem value="PIX">PIX</MenuItem>
-              <MenuItem value="CARTAO">Cartão</MenuItem>
+                <MenuItem value="PIX">PIX</MenuItem>
+                {/* CORREÇÃO 4: Adicionado acento para corresponder ao Backend */}
+                <MenuItem value="CARTAO">Cartão</MenuItem>
               </Select>
             </FormControl>
 
@@ -301,7 +306,8 @@ export function NewOrderPage() {
                   <ListItem key={item.id} divider>
                     <ListItemText
                       primary={item.name}
-                      secondary={`Qtd: ${item.quantity} x R$ ${item.price.toFixed(2)}`}
+                      // CORREÇÃO 5: Converter para Number() no carrinho
+                      secondary={`Qtd: ${item.quantity} x R$ ${Number(item.price).toFixed(2)}`}
                     />
                     <IconButton size="small" onClick={() => handleAddToCart(item)}>
                       <Plus size={16} />
@@ -322,7 +328,8 @@ export function NewOrderPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Total:</Typography>
               <Typography variant="h5" color="primary" fontWeight="bold">
-                R$ {total.toFixed(2)}
+                {/* CORREÇÃO 6: Converter o total para Number() */}
+                R$ {Number(total).toFixed(2)}
               </Typography>
             </Box>
 

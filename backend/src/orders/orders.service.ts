@@ -13,16 +13,18 @@ export class OrdersService {
   ) {}
 
   async create(createOrderDto: CreateOrderDto, userId: number) {
-    const { items, clientId, observations, paymentMethod } = createOrderDto;
+    // CORREÇÃO: Extrair deliveryDate do DTO
+    const { items, clientId, observations, paymentMethod, deliveryDate } = createOrderDto;
 
     // 1. Validar produtos
     const productIds = items.map((item) => item.productId);
     const productsInDb = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
+    
     if (productsInDb.length !== productIds.length) {
-      throw new NotFoundException('Produtos não encontrados.');
+      throw new NotFoundException('Alguns produtos não foram encontrados.');
     }
 
-    // 2. Validar Cliente
+    // 2. Validar Cliente (se enviado)
     if (clientId) {
       const exists = await this.prisma.client.findUnique({ where: { id: clientId } });
       if (!exists) throw new NotFoundException('Cliente não encontrado.');
@@ -34,15 +36,23 @@ export class OrdersService {
       const product = productsInDb.find((p) => p.id === item.productId);
       if (!product) throw new BadRequestException(`Produto erro.`);
       
-      // CORREÇÃO: Converter product.price para Number
-      const priceAsNumber = Number(product.price);
-      total += priceAsNumber * item.quantity;
+      // CORREÇÃO CRÍTICA: Converter Decimal para Number antes de multiplicar
+      const priceVal = Number(product.price);
+      total += priceVal * item.quantity;
       
-      return { productId: item.productId, quantity: item.quantity, price: product.price };
+      return { 
+        productId: item.productId, 
+        quantity: item.quantity, 
+        price: priceVal // Salva como número
+      };
     });
 
-    if (paymentMethod === PaymentMethodDto.CARTAO) total *= 1.06;
+    // Taxa do Cartão (usando o Enum sem acento)
+    if (paymentMethod === PaymentMethodDto.CARTAO) {
+      total *= 1.06;
+    }
 
+    // Cast seguro para o Enum do Prisma
     const methodForDb = paymentMethod as unknown as PaymentMethod;
 
     // 4. Criar Pedido
@@ -55,6 +65,8 @@ export class OrdersService {
           observations,
           clientId,
           paymentMethod: methodForDb,
+          // CORREÇÃO: Salvar a data de entrega (se existir)
+          deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         },
       });
 
@@ -72,6 +84,7 @@ export class OrdersService {
     return newOrder;
   }
 
+  // ... (manter findAll, findOne, update, remove como estavam) ...
   findAll() {
     return this.prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
@@ -97,11 +110,7 @@ export class OrdersService {
   async update(id: number, updateOrderDto: UpdateOrderDto, userId: number) {
     const currentOrder = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
     if (!currentOrder) throw new NotFoundException(`Pedido #${id} não encontrado.`);
-
-    // Lógica simplificada de atualização (sem recalculo complexo de estoque por enquanto, já que removeu delivery)
-    // Se quiseres reativar a edição de itens, podes usar a lógica anterior, mas simplificada.
     
-    // Atualização básica
     const updated = await this.prisma.order.update({
       where: { id },
       data: {

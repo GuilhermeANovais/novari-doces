@@ -9,13 +9,13 @@ import {
   IsDateString,
   IsEnum
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'; // <--- Importar
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateOrderItemDto } from './create-order-item.dto';
 
 export enum PaymentMethodDto {
   PIX = 'PIX',
   DINHEIRO = 'DINHEIRO',
-  CARTAO = 'CARTAO', // Note o acento aqui conforme corrigimos antes
+  CARTAO = 'CARTAO', // CORREÇÃO: Sem acento para bater com o Banco de Dados
 }
 
 export class CreateOrderDto {

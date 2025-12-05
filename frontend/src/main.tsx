@@ -19,6 +19,10 @@ import { ptBR } from '@mui/material/locale';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { BrowserRouter } from 'react-router-dom';
 
+// --- Imports do React Query ---
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
 // --- Configuração do Tema "Clean UI" ---
 const theme = createTheme(
   {
@@ -100,14 +104,28 @@ const theme = createTheme(
   ptBR,
 );
 
+// --- Criação do Cliente React Query ---
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Evita recarregar dados sempre que muda de janela
+      staleTime: 1000 * 60 * 5, // Dados são considerados "frescos" por 5 minutos
+    },
+  },
+});
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      <BrowserRouter>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </BrowserRouter>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <BrowserRouter>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
+      {/* DevTools ajudam a visualizar o estado do cache (apenas em dev) */}
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   </React.StrictMode>,
 );
