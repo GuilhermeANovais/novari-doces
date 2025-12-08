@@ -276,7 +276,6 @@ export function NewOrderPage() {
               >
                 <MenuItem value="DINHEIRO">Dinheiro</MenuItem>
                 <MenuItem value="PIX">PIX</MenuItem>
-                {/* CORREÇÃO 4: Adicionado acento para corresponder ao Backend */}
                 <MenuItem value="CARTAO">Cartão</MenuItem>
               </Select>
             </FormControl>

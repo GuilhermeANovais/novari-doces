@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
-import { 
-  Box, Typography, Paper, Button, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, IconButton, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem 
-} from '@mui/material';
+import { Box, Typography, Paper, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Snackbar, Alert } from '@mui/material';
 import { Download, PlusCircle } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // <--- React Query
 import api from '../api';
 
 interface Report {
@@ -18,62 +15,58 @@ interface Report {
 }
 
 export function ReportsHistoryPage() {
-  const [reports, setReports] = useState<Report[]>([]);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  
-  // Estado para o formulário de geração (Mês + 1 para ficar 1-12)
-  const [month, setMonth] = useState(new Date().getMonth() + 1); 
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
-  const fetchReports = async () => {
-    try {
-      const response = await api.get('/reports');
-      setReports(response.data);
-    } catch (error) {
-      console.error("Erro ao buscar relatórios");
-    }
-  };
+  // 1. FETCHING (React Query)
+  const { data: reports = [], isLoading } = useQuery({
+    queryKey: ['monthly-reports'],
+    queryFn: async () => {
+      const response = await api.get<Report[]>('/reports');
+      return response.data;
+    },
+    staleTime: 1000 * 60 * 10, // Cache de 10 minutos (relatórios mudam pouco)
+  });
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
-  const handleGenerate = async () => {
-    try {
-      // Envia mês (1-12) e ano
-      await api.post('/reports/generate', { 
-        month: Number(month), 
-        year: Number(year) 
-      });
+  // 2. MUTATION: GERAR RELATÓRIO
+  const generateReportMutation = useMutation({
+    mutationFn: async (data: { month: number; year: number }) => {
+      await api.post('/reports/generate', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthly-reports'] });
       setOpen(false);
-      fetchReports(); // Atualiza a lista
-      alert('Relatório gerado com sucesso!');
-    } catch (error) {
-      alert('Erro ao gerar relatório.');
+      setSnackbarMessage('Relatório gerado com sucesso!');
+    },
+    onError: () => {
+      setSnackbarMessage('Erro ao gerar relatório. Verifique se já existe.');
     }
+  });
+
+  const handleGenerate = () => {
+    generateReportMutation.mutate({ month: Number(month), year: Number(year) });
   };
 
-  // Função responsável pelo download
+  // Função de Download (Ação direta sem cache)
   const handleDownload = async (reportId: number, fileName: string) => {
     try {
       const response = await api.get(`/reports/${reportId}/download`, {
-        responseType: 'blob', // Importante: diz ao axios que é um ficheiro binário
+        responseType: 'blob',
       });
-
-      // Cria um link temporário para forçar o download no browser
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
-      
-      // Limpeza
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Erro ao baixar PDF:', error);
-      alert('Não foi possível baixar o relatório.');
+      console.error('Erro download:', error);
+      setSnackbarMessage('Erro ao baixar o PDF.');
     }
   };
 
@@ -106,18 +99,9 @@ export function ReportsHistoryPage() {
           <TableBody>
             {reports.map((row) => (
               <TableRow key={row.id}>
-                <TableCell sx={{ fontWeight: 'bold' }}>
-                  {String(row.month).padStart(2, '0')}/{row.year}
-                </TableCell>
-                
-                {/* Conversão Number() adicionada para evitar erro com Decimal/String */}
-                <TableCell align="right" sx={{ color: 'green' }}>
-                  R$ {Number(row.totalRevenue).toFixed(2)}
-                </TableCell>
-                <TableCell align="right" sx={{ color: 'red' }}>
-                  R$ {Number(row.totalExpenses).toFixed(2)}
-                </TableCell>
-                
+                <TableCell sx={{ fontWeight: 'bold' }}>{String(row.month).padStart(2, '0')}/{row.year}</TableCell>
+                <TableCell align="right" sx={{ color: 'green' }}>R$ {Number(row.totalRevenue).toFixed(2)}</TableCell>
+                <TableCell align="right" sx={{ color: 'red' }}>R$ {Number(row.totalExpenses).toFixed(2)}</TableCell>
                 <TableCell align="right">
                   <Chip 
                     label={`R$ ${Number(row.netProfit).toFixed(2)}`} 
@@ -126,11 +110,7 @@ export function ReportsHistoryPage() {
                     variant="outlined"
                   />
                 </TableCell>
-                
-                <TableCell align="right">
-                  {new Date(row.createdAt).toLocaleDateString()}
-                </TableCell>
-                
+                <TableCell align="right">{new Date(row.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell align="center">
                   <IconButton 
                     color="primary" 
@@ -142,7 +122,7 @@ export function ReportsHistoryPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {reports.length === 0 && (
+            {!isLoading && reports.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                   Nenhum relatório encontrado.
@@ -153,7 +133,7 @@ export function ReportsHistoryPage() {
         </Table>
       </TableContainer>
 
-      {/* MODAL DE GERAÇÃO */}
+      {/* MODAL */}
       <Dialog open={open} onClose={() => setOpen(false)}>
         <DialogTitle>Gerar Relatório Passado</DialogTitle>
         <DialogContent sx={{ pt: 2, minWidth: 300 }}>
@@ -182,11 +162,22 @@ export function ReportsHistoryPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={handleGenerate} variant="contained" color="primary">
-            Gerar
+          <Button onClick={handleGenerate} variant="contained" color="primary" disabled={generateReportMutation.isPending}>
+            {generateReportMutation.isPending ? 'Gerando...' : 'Gerar'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={!!snackbarMessage}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarMessage(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={snackbarMessage?.includes('Erro') ? 'error' : 'success'}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

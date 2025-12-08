@@ -16,8 +16,9 @@ export class ClientsService {
 
   findAll() {
     return this.prisma.client.findMany({
+      where: { deletedAt: null },
       orderBy: {
-        name: 'asc', // Ordena por nome
+        name: 'asc',
       },
     });
   }
@@ -46,8 +47,9 @@ export class ClientsService {
   }
 
   remove(id: number) {
-    return this.prisma.client.delete({
+    return this.prisma.client.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 }

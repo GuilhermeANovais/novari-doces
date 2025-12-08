@@ -1,5 +1,7 @@
 // src/orders/dto/update-order.dto.ts
-import { IsString, IsOptional, IsInt, IsDateString, IsIn } from 'class-validator';
+import { PartialType } from '@nestjs/swagger';
+import { CreateOrderDto } from './create-order.dto';
+import { IsString, IsOptional, IsIn } from 'class-validator';
 
 const validStatus = [
   'PENDENTE',
@@ -10,21 +12,10 @@ const validStatus = [
   'SINAL_PAGO',
 ];
 
-export class UpdateOrderDto {
+// PartialType herda tudo de CreateOrderDto (items, clientId, paymentMethod, etc.) como opcional
+export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsString()
   @IsOptional()
   @IsIn(validStatus, { message: 'Status inválido.' })
   status?: string;
-
-  @IsInt()
-  @IsOptional()
-  clientId?: number;
-
-  @IsDateString()
-  @IsOptional()
-  deliveryDate?: string;
-
-  @IsString()
-  @IsOptional()
-  observations?: string;
 }

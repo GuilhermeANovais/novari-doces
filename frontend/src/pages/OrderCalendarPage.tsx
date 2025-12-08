@@ -1,16 +1,15 @@
-// src/pages/OrderCalendarPage.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { Box, Typography, Paper, Alert, CircularProgress } from '@mui/material';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import startOfWeek from 'date-fns/startOfWeek';
-import getDay from 'date-fns/getDay';
-import ptBR from 'date-fns/locale/pt-BR';
-import { Box, Typography, Paper, CircularProgress } from '@mui/material';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import api from '../api';
-import { OrderSummary } from '../types/entities';
 import { OrderDetailsModal } from '../components/OrderDetailsModal';
+import { OrderSummary } from '../types/entities';
 
+// Configuração do Localizador (Data em Português)
 const locales = {
   'pt-BR': ptBR,
 };
@@ -23,82 +22,57 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-interface CalendarEvent {
-  id: number;
-  title: string;
-  start: Date;
-  end: Date;
-  status: string;
-}
-
 export function OrderCalendarPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    try {
+  // 1. FETCHING PEDIDOS
+  const { data: orders = [], isLoading, isError } = useQuery({
+    queryKey: ['orders-calendar'],
+    queryFn: async () => {
       const response = await api.get<OrderSummary[]>('/orders');
-      
-      const formattedEvents: CalendarEvent[] = response.data
-        .filter(order => order.deliveryDate)
-        .map(order => {
-          const startDate = new Date(order.deliveryDate!);
-          const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hora de duração
-          
-          const clientName = order.client?.name || 'Interno';
+      return response.data;
+    },
+    // Recarrega a cada 1 minuto para manter o calendário atualizado
+    refetchInterval: 60000, 
+  });
 
-          return {
-            id: order.id,
-            title: `#${order.id} - ${clientName}`,
-            start: startDate,
-            end: endDate,
-            status: order.status
-          };
-        });
+  // 2. TRANSFORMAR PEDIDOS EM EVENTOS DO CALENDÁRIO
+  const events = orders
+    .filter(order => order.deliveryDate) // Só mostra pedidos com data
+    .map(order => {
+      const date = new Date(order.deliveryDate!);
+      return {
+        id: order.id,
+        title: `#${order.id} - ${order.client?.name || 'Balcão'}`,
+        start: date,
+        end: new Date(date.getTime() + 60 * 60 * 1000), // Assume duração de 1h visualmente
+        resource: order,
+        status: order.status
+      };
+    });
 
-      setEvents(formattedEvents);
-    } catch (error) {
-      console.error("Erro ao carregar calendário:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
-
-  const eventStyleGetter = (event: CalendarEvent) => {
-    let backgroundColor = '#1976d2';
-    if (event.status === 'CONCLUÍDO') backgroundColor = '#2e7d32';
-    if (event.status === 'CANCELADO') backgroundColor = '#d32f2f';
-    if (event.status === 'PENDENTE') backgroundColor = '#ed6c02';
+  // Estilização condicional dos eventos baseada no status
+  const eventStyleGetter = (event: any) => {
+    let backgroundColor = '#3174ad';
+    if (event.status === 'PENDENTE') backgroundColor = '#f59e0b'; // Laranja
+    if (event.status === 'PRONTO') backgroundColor = '#10b981'; // Verde
+    if (event.status === 'CONCLUÍDO') backgroundColor = '#3b82f6'; // Azul
+    if (event.status === 'CANCELADO') backgroundColor = '#ef4444'; // Vermelho
 
     return {
       style: {
         backgroundColor,
-        borderRadius: '6px',
-        opacity: 0.9,
+        borderRadius: '5px',
+        opacity: 0.8,
         color: 'white',
         border: '0px',
-        display: 'block',
-        padding: '2px 5px',
-        fontSize: '0.85rem'
+        display: 'block'
       }
     };
   };
 
-  const handleSelectEvent = (event: CalendarEvent) => {
-    setSelectedOrderId(event.id);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedOrderId(null);
-    fetchOrders(); 
-  };
+  if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
+  if (isError) return <Alert severity="error">Erro ao carregar o calendário.</Alert>;
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -107,49 +81,43 @@ export function OrderCalendarPage() {
       </Typography>
 
       <Paper 
-        elevation={0} // Design flat
+        elevation={0} 
         sx={{ 
-          p: 3, 
+          p: 2, 
           flexGrow: 1, 
-          backgroundColor: 'white', 
           border: '1px solid #e0e0e0', 
-          borderRadius: 2 
+          borderRadius: 2,
+          bgcolor: 'white'
         }}
       >
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: 'calc(100vh - 180px)' }}
-            culture="pt-BR"
-            messages={{
-              next: "Próximo",
-              previous: "Anterior",
-              today: "Hoje",
-              month: "Mês",
-              week: "Semana",
-              day: "Dia",
-              agenda: "Agenda",
-              date: "Data",
-              time: "Hora",
-              event: "Pedido",
-              noEventsInRange: "Sem entregas neste período."
-            }}
-            eventPropGetter={eventStyleGetter}
-            onSelectEvent={handleSelectEvent}
-          />
-        )}
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: '100%', minHeight: 500 }}
+          culture="pt-BR"
+          messages={{
+            next: "Próximo",
+            previous: "Anterior",
+            today: "Hoje",
+            month: "Mês",
+            week: "Semana",
+            day: "Dia",
+            agenda: "Agenda",
+            date: "Data",
+            time: "Hora",
+            event: "Evento",
+            noEventsInRange: "Sem entregas neste período."
+          }}
+          eventPropGetter={eventStyleGetter}
+          onSelectEvent={(event) => setSelectedOrderId(Number(event.id))}
+        />
       </Paper>
 
       <OrderDetailsModal
         open={selectedOrderId !== null}
-        handleClose={handleCloseModal}
+        handleClose={() => setSelectedOrderId(null)}
         orderId={selectedOrderId}
       />
     </Box>

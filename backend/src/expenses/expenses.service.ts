@@ -23,10 +23,11 @@ export class ExpensesService {
 
   findAll() {
     return this.prisma.expense.findMany({
+      where: { deletedAt: null },
       orderBy: { date: 'desc' },
       include: {
-        user: { select: { name: true } }
-      }
+        user: { select: { name: true } },
+      },
     });
   }
 
@@ -51,8 +52,9 @@ export class ExpensesService {
   }
 
   remove(id: number) {
-    return this.prisma.expense.delete({
+    return this.prisma.expense.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 

@@ -1,9 +1,8 @@
 // src/components/OrderDetailsModal.tsx
 import {
-  Modal, Box, Typography, Divider, List, ListItem,
+  Modal, Box, Typography, List, ListItem,
   ListItemText, Button, IconButton, CircularProgress, Tooltip, useTheme
 } from '@mui/material';
-// 1. Ícones Lucide
 import { X, Printer, MessageCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../api';
@@ -29,8 +28,8 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
     transform: 'translate(-50%, -50%)',
     width: { xs: '90%', sm: 600 },
     bgcolor: 'background.paper',
-    borderRadius: 3, // Bordas arredondadas
-    boxShadow: theme.shadows[1], // Sombra suave
+    borderRadius: 3,
+    boxShadow: theme.shadows[1],
     p: 4,
     maxHeight: '90vh',
     overflowY: 'auto',
@@ -103,7 +102,8 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
     message += `Estamos a entrar em contacto sobre o pedido #${order.id}.\n\n`;
 
     if (order.status === 'PENDENTE') {
-      message += `Confirmamos a recepção! Valor total: R$ ${order.total.toFixed(2)}.`;
+      // CORREÇÃO 1: Converter total para Number
+      message += `Confirmamos a recepção! Valor total: R$ ${Number(order.total).toFixed(2)}.`;
       if (order.deliveryDate) {
         message += `\nPrevisão de entrega/retirada: ${new Date(order.deliveryDate).toLocaleString('pt-BR')}.`;
       }
@@ -185,10 +185,12 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
             <ListItem key={item.id} divider>
               <ListItemText
                 primary={<Typography fontWeight={500}>{item.product.name}</Typography>}
-                secondary={`${item.quantity}x R$ ${item.price.toFixed(2)} un.`}
+                // CORREÇÃO 2: Converter item.price para Number
+                secondary={`${item.quantity}x R$ ${Number(item.price).toFixed(2)} un.`}
               />
               <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                R$ {(item.quantity * item.price).toFixed(2)}
+                {/* CORREÇÃO 3: Converter item.price para Number antes da multiplicação */}
+                R$ {(item.quantity * Number(item.price)).toFixed(2)}
               </Typography>
             </ListItem>
           ))}
@@ -196,7 +198,8 @@ export function OrderDetailsModal({ orderId, open, handleClose }: OrderDetailsMo
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, mb: 3 }}>
           <Typography variant="h5" color="primary.dark" sx={{ fontWeight: 'bold' }}>
-            Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.total)}
+            {/* CORREÇÃO 4: Converter order.total para Number */}
+            Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(order.total))}
           </Typography>
         </Box>
 

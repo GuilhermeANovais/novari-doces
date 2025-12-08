@@ -14,7 +14,10 @@ export class ProductsService {
   }
 
   findAll() {
-    return this.prisma.product.findMany();
+    return this.prisma.product.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
   }
 
   findOne(id: number) {
@@ -31,8 +34,9 @@ export class ProductsService {
   }
 
   remove(id: number) {
-    return this.prisma.product.delete({
-      where: { id: id },
+    return this.prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 }

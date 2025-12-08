@@ -30,22 +30,24 @@ model Client {
   notes     String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // <--- NOVO
 
   orders Order[]
 }
 
 //usuário
 model User {
+  // ... (User geralmente não precisa de soft delete para este contexto, mas pode adicionar se quiser)
   id        Int        @id @default(autoincrement())
   email     String     @unique
   name      String?
   password  String
-
   role      Role       @default(COZINHA)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-  orders    Order[]
+  // deletedAt DateTime? // Opcional
 
+  orders    Order[]
   auditLogs AuditLog[]
   expenses  Expense[]
   notices   Notice[]
@@ -65,15 +67,17 @@ model AuditLog {
 
 //produtos
 model Product {
-  id           Int         @id @default(autoincrement())
-  name         String
-  price        Decimal
-  description  String?
+  id            Int         @id @default(autoincrement())
+  name          String
+  price         Decimal     @db.Decimal(10, 2) // Já atualizado para Decimal
+  description   String?
   stockKitchen  Int         @default(0)
   stockDelivery Int         @default(0)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  orderItems  OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?   // <--- NOVO
+  
+  orderItems    OrderItem[]
 }
 
 //peidos
@@ -91,33 +95,33 @@ model OrderItem {
 }
 
 model Order {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now())
-  status       String   @default("PENDENTE")
-  total        Decimal
-  observations String?
-
-  deliveryDate DateTime?
-
+  id            Int            @id @default(autoincrement())
+  createdAt     DateTime       @default(now())
+  status        String         @default("PENDENTE")
+  total         Decimal        @db.Decimal(10, 2)
+  observations  String?
+  deliveryDate  DateTime?
   paymentMethod PaymentMethod? @default(PIX)
+  deletedAt     DateTime?      // <--- NOVO
 
   user   User @relation(fields: [userId], references: [id])
   userId Int
 
-  client   Client?     @relation(fields: [clientId], references: [id])
+  client   Client? @relation(fields: [clientId], references: [id])
   clientId Int?
+  
   items    OrderItem[]
 }
 
 model Expense {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   description String
-  amount      Decimal
-  date        DateTime @default(now())
+  amount      Decimal   @db.Decimal(10, 2)
+  date        DateTime  @default(now())
   category    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? // <--- NOVO
 
   user   User @relation(fields: [userId], references: [id])
   userId Int

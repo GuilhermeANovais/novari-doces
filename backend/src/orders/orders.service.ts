@@ -13,49 +13,35 @@ export class OrdersService {
   ) {}
 
   async create(createOrderDto: CreateOrderDto, userId: number) {
-    // CORREÇÃO: Extrair deliveryDate do DTO
     const { items, clientId, observations, paymentMethod, deliveryDate } = createOrderDto;
 
-    // 1. Validar produtos
     const productIds = items.map((item) => item.productId);
     const productsInDb = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
     
     if (productsInDb.length !== productIds.length) {
-      throw new NotFoundException('Alguns produtos não foram encontrados.');
+      throw new NotFoundException('Produtos não encontrados.');
     }
 
-    // 2. Validar Cliente (se enviado)
     if (clientId) {
       const exists = await this.prisma.client.findUnique({ where: { id: clientId } });
       if (!exists) throw new NotFoundException('Cliente não encontrado.');
     }
 
-    // 3. Calcular Total
     let total = 0;
     const orderItemsData = items.map((item) => {
       const product = productsInDb.find((p) => p.id === item.productId);
       if (!product) throw new BadRequestException(`Produto erro.`);
       
-      // CORREÇÃO CRÍTICA: Converter Decimal para Number antes de multiplicar
       const priceVal = Number(product.price);
       total += priceVal * item.quantity;
       
-      return { 
-        productId: item.productId, 
-        quantity: item.quantity, 
-        price: priceVal // Salva como número
-      };
+      return { productId: item.productId, quantity: item.quantity, price: priceVal };
     });
 
-    // Taxa do Cartão (usando o Enum sem acento)
-    if (paymentMethod === PaymentMethodDto.CARTAO) {
-      total *= 1.06;
-    }
+    if (paymentMethod === PaymentMethodDto.CARTAO) total *= 1.06;
 
-    // Cast seguro para o Enum do Prisma
     const methodForDb = paymentMethod as unknown as PaymentMethod;
 
-    // 4. Criar Pedido
     const newOrder = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
@@ -65,7 +51,6 @@ export class OrdersService {
           observations,
           clientId,
           paymentMethod: methodForDb,
-          // CORREÇÃO: Salvar a data de entrega (se existir)
           deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         },
       });
@@ -84,9 +69,9 @@ export class OrdersService {
     return newOrder;
   }
 
-  // ... (manter findAll, findOne, update, remove como estavam) ...
   findAll() {
     return this.prisma.order.findMany({
+      where: {deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { name: true, email: true } },
@@ -108,33 +93,75 @@ export class OrdersService {
   }
 
   async update(id: number, updateOrderDto: UpdateOrderDto, userId: number) {
+    const { items, clientId, observations, status, paymentMethod, deliveryDate } = updateOrderDto;
+
     const currentOrder = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
     if (!currentOrder) throw new NotFoundException(`Pedido #${id} não encontrado.`);
-    
-    const updated = await this.prisma.order.update({
-      where: { id },
-      data: {
-        status: updateOrderDto.status,
-        clientId: updateOrderDto.clientId,
-        observations: updateOrderDto.observations,
-      },
+
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      let total = Number(currentOrder.total);
+      
+      if (items && items.length > 0) {
+        await tx.orderItem.deleteMany({ where: { orderId: id } });
+
+        const productIds = items.map(i => i.productId);
+        const productsInDb = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
+
+        let newTotal = 0;
+        const newItemsData = items.map(item => {
+          const product = productsInDb.find(p => p.id === item.productId);
+          if (!product) throw new BadRequestException(`Produto ID ${item.productId} não encontrado.`);
+          
+          const priceVal = Number(product.price);
+          newTotal += priceVal * item.quantity;
+
+          return { productId: item.productId, quantity: item.quantity, price: priceVal, orderId: id };
+        });
+
+        const methodToCheck = paymentMethod || currentOrder.paymentMethod;
+        // @ts-ignore
+        if (methodToCheck === 'CARTAO' || methodToCheck === 'CARTÃO') { 
+             newTotal *= 1.06;
+        }
+
+        await tx.orderItem.createMany({ data: newItemsData });
+        total = newTotal;
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: {
+          status,
+          clientId,
+          observations,
+          deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
+          paymentMethod: paymentMethod as any,
+          total: items ? total : undefined,
+        },
+        include: { items: true, client: true }
+      });
     });
 
-    await this.auditService.createLog(userId, 'UPDATE', 'Order', id, 'Pedido atualizado.');
-    return updated;
+    await this.auditService.createLog(userId, 'UPDATE', 'Order', id, 'Pedido editado.');
+    return updatedOrder;
   }
 
   async remove(id: number, userId: number) {
-    await this.prisma.orderItem.deleteMany({ where: { orderId: id } });
-    await this.prisma.order.delete({ where: { id } });
-    await this.auditService.createLog(userId, 'DELETE', 'Order', id, 'Pedido deletado.');
+    await this.prisma.order.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    
+    await this.auditService.createLog(userId, 'DELETE', 'Order', id, 'Pedido movido para a lixeira.');
     return { message: 'Sucesso' };
   }
 
+  // --- NOVO MÉTODO CORRIGIDO ---
   async removeAll(userId: number) {
-    // Usamos transaction para garantir que apaga itens e pedidos ou nada
     const count = await this.prisma.$transaction(async (tx) => {
+      // 1. Apagar itens primeiro para não violar foreign key
       await tx.orderItem.deleteMany({});
+      // 2. Apagar pedidos
       return tx.order.deleteMany({});
     });
 
