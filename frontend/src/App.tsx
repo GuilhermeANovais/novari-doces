@@ -5,14 +5,15 @@ import {
 } from '@mui/material';
 import { 
   LayoutDashboard, ShoppingBag, Receipt, CalendarDays, Users, LogOut,
-  ChefHat, History, Wallet, FileText, KanbanSquare, Settings, Menu as MenuIcon, Truck 
+  ChefHat, History, Wallet, FileText, KanbanSquare, Settings, Menu as MenuIcon 
 } from 'lucide-react';
 import { Routes, Route, Link, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { GlobalSearch } from './components/GlobalSearch'; 
 
-// Páginas
+// --- PÁGINAS ---
+import { LandingPage } from './pages/LandingPage'; // Nova Landing Page
 import { ProductsPage } from './pages/ProductsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
@@ -30,7 +31,7 @@ import { SettingsPage } from './pages/SettingsPage';
 const drawerWidth = 240;
 
 function DashboardLayout() {
-  const { user, logout } = useAuth(); // Acede ao utilizador para verificar o cargo (role)
+  const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -42,10 +43,9 @@ function DashboardLayout() {
     return false;
   };
 
-  // Componente Auxiliar para itens do menu
-  // Só renderiza se o cargo do utilizador estiver na lista "roles"
+  // Componente Auxiliar para itens do menu com verificação de Role
   const MenuLink = ({ to, icon, text, roles }: { to: string, icon: any, text: string, roles: string[] }) => {
-    // Se não houver utilizador ou o cargo dele não for permitido, esconde o botão
+    // Se não houver utilizador ou o cargo não for permitido, não renderiza
     if (user && !roles.includes(user.role)) return null;
 
     return (
@@ -75,7 +75,7 @@ function DashboardLayout() {
   const drawerContent = (
     <Box sx={{ overflow: 'auto', display: 'flex', flexDirection: 'column', height: '100%', pt: 2 }}>
       <List>
-        {/* --- MENU BASEADO EM ROLES --- */}
+        {/* --- MENU BASEADO EM CARGOS (ROLES) --- */}
         
         {/* Dashboard: Apenas Admin */}
         <MenuLink to="/" text="Dashboard" icon={<LayoutDashboard size={20} />} roles={['ADMIN']} />
@@ -126,7 +126,7 @@ function DashboardLayout() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{ bgcolor: '#1B5E20', color: 'white', p: 0.5, borderRadius: 1, display: 'flex' }}><ChefHat size={24} strokeWidth={1.5} /></Box>
               <Typography variant="h6" noWrap sx={{ fontWeight: 'bold', letterSpacing: '-0.5px', color: '#111827', display: { xs: 'none', md: 'block' } }}>
-                Heaven Dashboard
+                Confeitaria Heaven
               </Typography>
             </Box>
           </Box>
@@ -158,9 +158,12 @@ function DashboardLayout() {
 function App() {
   return (
     <Routes>
+      {/* --- ROTAS PÚBLICAS --- */}
+      <Route path="/welcome" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       
+      {/* --- ROTAS PROTEGIDAS (APP) --- */}
       <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
         
         {/* ROTA PRINCIPAL: Dashboard (Só Admin) */}
@@ -190,6 +193,9 @@ function App() {
         <Route path="audit" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditPage /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute allowedRoles={['ADMIN']}><SettingsPage /></ProtectedRoute>} />
       </Route>
+
+      {/* --- CATCH ALL: Redireciona para a Landing Page se a rota não existir --- */}
+      <Route path="*" element={<Navigate to="/welcome" replace />} />
     </Routes>
   );
 }
