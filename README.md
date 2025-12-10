@@ -72,3 +72,19 @@ O projeto é composto por um **backend em NestJS + Prisma** e um **frontend em V
 - Registra "Delete", "Update", "Create"
 
 ---
+
+## Melhorias
+- [ ] PDV do Delivery
+- [ ] App para Mobile (IOS e ANDROID)
+
+---
+
+## 📝 Licença
+Desenvolvido por [Guilherme Novais](https://github.com/GuilhermeANovais)
+
+---
+
+## Contatos
+<a href="https://www.linkedin.com/in/guilherme-novais0/" target="_blank"><img loading="lazy" src="https://img.shields.io/badge/-LinkedIn-%230077B5?style=for-the-badge&logo=linkedin&logoColor=white" target="_blank"></a>
+<a href="mailto:jose.guilherme.a.novais@gmail.com"> <img loading="lazy" src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" target="_blank"></a>
+<a href="https://www.instagram.com/guinwv"> <img loading="lazy" src="https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white" target="_blank"></a> 
