@@ -76,6 +76,8 @@ O projeto é composto por um **backend em NestJS + Prisma** e um **frontend em V
 ## Melhorias
 - [ ] PDV do Delivery
 - [ ] App para Mobile (IOS e ANDROID)
+- [ ] Feature Multi-Tenant
+- [ ] API Whatsapp para mensagens automáticas
 
 ---
 
