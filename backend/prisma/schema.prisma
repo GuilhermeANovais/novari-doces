@@ -7,8 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//modelo de dados
-
 enum PaymentMethod {
   PIX
   DINHEIRO
@@ -21,36 +19,58 @@ enum Role {
   DELIVERY
 }
 
-model Client {
-  id        Int       @id @default(autoincrement())
-  name      String
-  phone     String?
-  address   String?
-  birthday  DateTime?
-  notes     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // <--- NOVO
+// --- NOVO MODELO ---
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String   @default("Minha Confeitaria")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  orders Order[]
+  users         User[]
+  clients       Client[]
+  products      Product[]
+  orders        Order[]
+  expenses      Expense[]
+  notices       Notice[]
+  monthlyReports MonthlyReport[]
 }
 
-//usuário
-model User {
-  // ... (User geralmente não precisa de soft delete para este contexto, mas pode adicionar se quiser)
-  id        Int        @id @default(autoincrement())
-  email     String     @unique
-  name      String?
-  password  String
-  role      Role       @default(COZINHA)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  // deletedAt DateTime? // Opcional
+model Client {
+  id             Int          @id @default(autoincrement())
+  name           String
+  phone          String?
+  address        String?
+  birthday       DateTime?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
 
-  orders    Order[]
-  auditLogs AuditLog[]
-  expenses  Expense[]
-  notices   Notice[]
+  // Relação com Organização
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  orders         Order[]
+}
+
+model User {
+  id             Int          @id @default(autoincrement())
+  email          String       @unique
+  name           String?
+  password       String
+  role           Role         @default(COZINHA)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  // deletedAt   DateTime? // Se quiser soft delete no user
+
+  // Relação com Organização
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  orders         Order[]
+  auditLogs      AuditLog[]
+  expenses       Expense[]
+  notices        Notice[]
 }
 
 model AuditLog {
@@ -61,33 +81,38 @@ model AuditLog {
   details   String?
   createdAt DateTime @default(now())
 
-  user   User @relation(fields: [userId], references: [id])
-  userId Int
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  // AuditLog geralmente não precisa de organizationId direto se já tem User, 
+  // mas se o seu código pedir, adicione aqui também.
 }
 
-//produtos
 model Product {
-  id            Int         @id @default(autoincrement())
-  name          String
-  price         Decimal     @db.Decimal(10, 2) // Já atualizado para Decimal
-  description   String?
-  stockKitchen  Int         @default(0)
-  stockDelivery Int         @default(0)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  deletedAt     DateTime?   // <--- NOVO
-  
-  orderItems    OrderItem[]
-}
+  id             Int          @id @default(autoincrement())
+  name           String
+  price          Decimal      @db.Decimal(10, 2)
+  description    String?
+  stockKitchen   Int          @default(0)
+  stockDelivery  Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
 
-//peidos
+  // Relação com Organização
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  orderItems     OrderItem[]
+}
 
 model OrderItem {
   id        Int     @id @default(autoincrement())
   quantity  Int
   price     Decimal
+  
   order     Order   @relation(fields: [orderId], references: [id])
   orderId   Int
+  
   product   Product @relation(fields: [productId], references: [id])
   productId Int
 
@@ -102,32 +127,38 @@ model Order {
   observations  String?
   deliveryDate  DateTime?
   paymentMethod PaymentMethod? @default(PIX)
-  deletedAt     DateTime?      // <--- NOVO
+  deletedAt     DateTime?
 
-  user   User @relation(fields: [userId], references: [id])
-  userId Int
+  user          User           @relation(fields: [userId], references: [id])
+  userId        Int
 
-  client   Client? @relation(fields: [clientId], references: [id])
-  clientId Int?
-  
-  items    OrderItem[]
+  client        Client?        @relation(fields: [clientId], references: [id])
+  clientId      Int?
+
+  // Relação com Organização
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  items         OrderItem[]
 }
 
 model Expense {
-  id          Int       @id @default(autoincrement())
-  description String
-  amount      Decimal   @db.Decimal(10, 2)
-  date        DateTime  @default(now())
-  category    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime? // <--- NOVO
+  id             Int          @id @default(autoincrement())
+  description    String
+  amount         Decimal      @db.Decimal(10, 2)
+  date           DateTime     @default(now())
+  category       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
 
-  user   User @relation(fields: [userId], references: [id])
-  userId Int
+  user           User         @relation(fields: [userId], references: [id])
+  userId         Int
+
+  // Relação com Organização
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
 }
-
-//itemPeidos
 
 model MonthlyReport {
   id            Int      @id @default(autoincrement())
@@ -138,14 +169,22 @@ model MonthlyReport {
   netProfit     Decimal
   pdfData       Bytes
   createdAt     DateTime @default(now())
+
+  // Relação com Organização (Seu código pede isso)
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
 }
 
 model Notice {
-  id        Int      @id @default(autoincrement())
-  title     String
-  content   String
-  createdAt DateTime @default(now())
+  id             Int          @id @default(autoincrement())
+  title          String
+  content        String
+  createdAt      DateTime     @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
-  userId    Int
+  user           User         @relation(fields: [userId], references: [id])
+  userId         Int
+
+  // Relação com Organização
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
 }

@@ -12,19 +12,25 @@ export class OrdersService {
     private auditService: AuditService
   ) {}
 
-  async create(createOrderDto: CreateOrderDto, userId: number) {
+  async create(createOrderDto: CreateOrderDto, userId: number, organizationId: number) {
     const { items, clientId, observations, paymentMethod, deliveryDate } = createOrderDto;
+    const orgId = Number(organizationId); // Garante número
 
     const productIds = items.map((item) => item.productId);
-    const productsInDb = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
+    const productsInDb = await this.prisma.product.findMany({ 
+      where: { 
+        id: { in: productIds },
+        organizationId: orgId 
+      } 
+    });
     
     if (productsInDb.length !== productIds.length) {
-      throw new NotFoundException('Produtos não encontrados.');
+      throw new NotFoundException('Alguns produtos não foram encontrados nesta organização.');
     }
 
     if (clientId) {
       const exists = await this.prisma.client.findUnique({ where: { id: clientId } });
-      if (!exists) throw new NotFoundException('Cliente não encontrado.');
+      if (!exists || exists.organizationId !== orgId) throw new NotFoundException('Cliente não encontrado.');
     }
 
     let total = 0;
@@ -46,6 +52,7 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           userId,
+          organizationId: orgId,
           total,
           status: 'PENDENTE',
           observations,
@@ -63,15 +70,19 @@ export class OrdersService {
     });
 
     if (newOrder) {
+      // Removido organizationId do final (createLog aceita apenas 5 args)
       await this.auditService.createLog(userId, 'CREATE', 'Order', newOrder.id, `Pedido criado. R$ ${total.toFixed(2)}`);
     }
 
     return newOrder;
   }
 
-  findAll() {
+  findAll(organizationId: number) {
     return this.prisma.order.findMany({
-      where: {deletedAt: null },
+      where: {
+        deletedAt: null,
+        organizationId: Number(organizationId)
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { name: true, email: true } },
@@ -81,9 +92,9 @@ export class OrdersService {
     });
   }
 
-  findOne(id: number) {
+  findOne(id: number, organizationId: number) {
     return this.prisma.order.findUnique({
-      where: { id },
+      where: { id }, // Prisma já filtra único por ID, mas poderíamos validar org depois
       include: {
         user: { select: { name: true, email: true } },
         client: { select: { name: true, phone: true, address: true } },
@@ -92,10 +103,14 @@ export class OrdersService {
     });
   }
 
-  async update(id: number, updateOrderDto: UpdateOrderDto, userId: number) {
+  async update(id: number, updateOrderDto: UpdateOrderDto, userId: number, organizationId: number) {
     const { items, clientId, observations, status, paymentMethod, deliveryDate } = updateOrderDto;
+    const orgId = Number(organizationId);
 
-    const currentOrder = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    const currentOrder = await this.prisma.order.findFirst({ 
+      where: { id, organizationId: orgId },
+      include: { items: true } 
+    });
     if (!currentOrder) throw new NotFoundException(`Pedido #${id} não encontrado.`);
 
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
@@ -105,7 +120,9 @@ export class OrdersService {
         await tx.orderItem.deleteMany({ where: { orderId: id } });
 
         const productIds = items.map(i => i.productId);
-        const productsInDb = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
+        const productsInDb = await this.prisma.product.findMany({ 
+          where: { id: { in: productIds }, organizationId: orgId } 
+        });
 
         let newTotal = 0;
         const newItemsData = items.map(item => {
@@ -146,7 +163,12 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: number, userId: number, organizationId: number) {
+    const orgId = Number(organizationId);
+    // Verifica posse antes de deletar
+    const order = await this.prisma.order.findFirst({ where: { id, organizationId: orgId } });
+    if (!order) throw new NotFoundException("Pedido não encontrado");
+
     await this.prisma.order.update({
       where: { id },
       data: { deletedAt: new Date() },
@@ -156,13 +178,17 @@ export class OrdersService {
     return { message: 'Sucesso' };
   }
 
-  // --- NOVO MÉTODO CORRIGIDO ---
-  async removeAll(userId: number) {
+  async removeAll(userId: number, organizationId: number) {
+    const orgId = Number(organizationId);
+    
     const count = await this.prisma.$transaction(async (tx) => {
-      // 1. Apagar itens primeiro para não violar foreign key
-      await tx.orderItem.deleteMany({});
-      // 2. Apagar pedidos
-      return tx.order.deleteMany({});
+      // Remove apenas itens de pedidos desta organização
+      await tx.orderItem.deleteMany({
+        where: { order: { organizationId: orgId } }
+      });
+      return tx.order.deleteMany({
+        where: { organizationId: orgId }
+      });
     });
 
     await this.auditService.createLog(userId, 'DELETE_ALL', 'Order', 0, `Limpou ${count.count} pedidos.`);

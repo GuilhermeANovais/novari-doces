@@ -1,56 +1,63 @@
-// src/contexts/AuthContext.tsx
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { User } from '../types/entities'; 
 
-// 1. Defina a "forma" do nosso contexto
 interface AuthContextType {
   token: string | null;
-  login: (token: string) => void;
+  user: User | null; // <--- NOVO: Guardamos o utilizador completo
+  login: (token: string, user: User) => void; // <--- NOVO: Recebe user no login
   logout: () => void;
   isAuthenticated: boolean;
 }
 
-// 2. Crie o Contexto
 // O '!' diz ao TypeScript que vamos fornecer um valor (via Provider)
 const AuthContext = createContext<AuthContextType>(null!);
 
-// 3. Crie um Hook customizado para facilitar o uso
 export function useAuth() {
   return useContext(AuthContext);
 }
 
-// 4. Crie o "Provedor"
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  // 5. Tente pegar o token salvo no localStorage
-  const [token, setToken] = useState(localStorage.getItem('token'));
-
-  // 6. Crie os valores que o contexto irá fornecer
+  // 1. Inicializa o token do localStorage
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('token');
+  });
   
-  // Função de Login: salva o token no estado E no localStorage
-  const login = (newToken: string) => {
+  // 2. Inicializa o user do localStorage (se existir)
+  const [user, setUser] = useState<User | null>(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  // Função de Login: salva token e user no estado E no localStorage
+  const login = (newToken: string, newUser: User) => {
     setToken(newToken);
+    setUser(newUser);
+
     localStorage.setItem('token', newToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
   };
 
-  // Função de Logout: limpa o estado E o localStorage
+  // Função de Logout: limpa tudo
   const logout = () => {
     setToken(null);
+    setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
   };
 
-  // Valor booleano para facilitar a checagem
   const isAuthenticated = !!token;
 
   const value = {
     token,
+    user,
     login,
     logout,
     isAuthenticated,
   };
 
-  // 7. Retorne o Provedor com os valores
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

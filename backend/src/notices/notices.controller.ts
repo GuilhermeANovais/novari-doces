@@ -10,16 +10,16 @@ export class NoticesController {
 
   @Post()
   create(@Body() createNoticeDto: CreateNoticeDto, @Request() req: any) {
-    return this.noticesService.create(createNoticeDto, req.user.userId);
+    return this.noticesService.create(createNoticeDto, req.user.userId, req.user.organizationId);
   }
 
   @Get()
-  findAll() {
-    return this.noticesService.findAll();
+  findAll(@Request() req: any) {
+    return this.noticesService.findAll(req.user.organizationId);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.noticesService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.noticesService.remove(id, req.user.organizationId);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateNoticeDto } from './dto/create-notice.dto';
 
@@ -6,31 +6,38 @@ import { CreateNoticeDto } from './dto/create-notice.dto';
 export class NoticesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createNoticeDto: CreateNoticeDto, userId: number) {
+  async create(createNoticeDto: CreateNoticeDto, userId: number, organizationId: number) {
     return this.prisma.notice.create({
       data: {
         ...createNoticeDto,
         userId,
+        organizationId: Number(organizationId),
       },
-      include: {
-        user: { select: { name: true, role: true } }, // Retorna logo o nome para o frontend
-      },
-    });
-  }
-
-  async findAll() {
-    return this.prisma.notice.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 20, // Mostra apenas os últimos 20 avisos
       include: {
         user: { select: { name: true, role: true } },
       },
     });
   }
 
-  async remove(id: number) {
-    // Aqui poderíamos adicionar lógica para só o autor ou Admin apagar
-    // Por simplicidade, deixamos aberto para quem tiver acesso à rota
+  async findAll(organizationId: number) {
+    return this.prisma.notice.findMany({
+      where: { organizationId: Number(organizationId) },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        user: { select: { name: true, role: true } },
+      },
+    });
+  }
+
+  async remove(id: number, organizationId: number) {
+    // Garante que só apaga da própria organização
+    const notice = await this.prisma.notice.findFirst({
+        where: { id, organizationId: Number(organizationId) }
+    });
+    
+    if (!notice) throw new NotFoundException("Aviso não encontrado.");
+
     return this.prisma.notice.delete({ where: { id } });
   }
 }

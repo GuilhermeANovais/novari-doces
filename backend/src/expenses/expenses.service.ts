@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -7,23 +7,25 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 export class ExpensesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createExpenseDto: CreateExpenseDto, userId: number) {
-    // Corrigindo o erro TS2322: Passamos os campos explicitamente
+  async create(createExpenseDto: CreateExpenseDto, userId: number, organizationId: number) {
     return this.prisma.expense.create({
       data: {
         description: createExpenseDto.description,
         amount: createExpenseDto.amount,
         category: createExpenseDto.category,
-        // Se a data vier, converte para Date, senão usa agora
         date: createExpenseDto.date ? new Date(createExpenseDto.date) : new Date(),
-        userId: userId, // Vincula ao usuário
+        userId: userId,
+        organizationId: Number(organizationId), // Conversão explícita
       },
     });
   }
 
-  findAll() {
+  findAll(organizationId: number) {
     return this.prisma.expense.findMany({
-      where: { deletedAt: null },
+      where: { 
+        organizationId: Number(organizationId),
+        deletedAt: null 
+      },
       orderBy: { date: 'desc' },
       include: {
         user: { select: { name: true } },
@@ -31,15 +33,17 @@ export class ExpensesService {
     });
   }
 
-  // Método que estava faltando
-  findOne(id: number) {
-    return this.prisma.expense.findUnique({
-      where: { id },
+  async findOne(id: number, organizationId: number) {
+    const expense = await this.prisma.expense.findFirst({
+      where: { id, organizationId: Number(organizationId) },
     });
+    if (!expense) throw new NotFoundException('Despesa não encontrada.');
+    return expense;
   }
 
-  // Método que estava faltando
-  update(id: number, updateExpenseDto: UpdateExpenseDto) {
+  async update(id: number, updateExpenseDto: UpdateExpenseDto, organizationId: number) {
+    await this.findOne(id, organizationId); // Garante permissão
+
     return this.prisma.expense.update({
       where: { id },
       data: {
@@ -51,16 +55,19 @@ export class ExpensesService {
     });
   }
 
-  remove(id: number) {
+  async remove(id: number, organizationId: number) {
+    await this.findOne(id, organizationId);
+
     return this.prisma.expense.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
   }
 
-  async removeAll(userId: number) {
-    const count = await this.prisma.expense.deleteMany({});
-    // Se tiver AuditService, adicione o log aqui
+  async removeAll(userId: number, organizationId: number) {
+    const count = await this.prisma.expense.deleteMany({
+      where: { organizationId: Number(organizationId) }
+    });
     return { message: `Foram removidas ${count.count} despesas.` };
   }
 }

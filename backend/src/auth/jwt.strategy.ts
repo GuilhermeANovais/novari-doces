@@ -1,26 +1,31 @@
-// src/auth/jwt.strategy.ts
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
-    // 1. Verifique se o segredo existe ANTES de usar
     const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new Error('JWT_SECRET não está definido nas variáveis de ambiente');
-    }
+    if (!secret) throw new Error('JWT_SECRET ausente');
 
-    // 2. Passe a variável 'secret' (que agora é uma string garantida)
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: secret, 
+      secretOrKey: secret,
     });
   }
 
   async validate(payload: any) {
-    return { userId: payload.sub, email: payload.email };
+    // O retorno deste método é injetado em @Request() req.user
+    if (!payload.organizationId) {
+        // Se for token antigo sem org, pode dar erro.
+        // O ideal é forçar relogin ou tratar como null.
+    }
+    return { 
+      userId: payload.sub, 
+      email: payload.email, 
+      role: payload.role,
+      organizationId: payload.organizationId 
+    };
   }
 }

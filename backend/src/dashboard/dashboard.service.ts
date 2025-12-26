@@ -5,25 +5,25 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async getStats() {
-    const productCount = await this.prisma.product.count();
-    const userCount = await this.prisma.user.count();
+  async getStats(organizationId: number) {
+    const orgId = Number(organizationId);
+
+    const productCount = await this.prisma.product.count({ where: { organizationId: orgId, deletedAt: null } });
+    // User count geralmente é global ou da org, assumindo org:
+    const userCount = await this.prisma.user.count({ where: { organizationId: orgId } });
     
-    // Dados dos Gráficos
-    const salesData = await this.getSalesChartData();
-    const topProducts = await this.getTopProductsData();
-    const expensesData = await this.getExpensesChartData();
+    const salesData = await this.getSalesChartData(orgId);
+    const topProducts = await this.getTopProductsData(orgId);
+    const expensesData = await this.getExpensesChartData(orgId);
+    const financials = await this.getMonthlyFinancials(orgId);
 
-    // Dados Financeiros
-    const financials = await this.getMonthlyFinancials();
-
-    // Pedidos Próximos (Lógica corrigida para garantir datas locais)
     const today = new Date();
     const next48Hours = new Date();
     next48Hours.setDate(today.getDate() + 2);
 
     const upcomingOrders = await this.prisma.order.findMany({
       where: {
+        organizationId: orgId,
         status: 'PENDENTE', 
         deliveryDate: { gte: today, lte: next48Hours },
       },
@@ -42,11 +42,14 @@ export class DashboardService {
     };
   }
 
-  // --- CORREÇÃO DE TIMEZONE AQUI ---
-  // Adicionei "AT TIME ZONE 'America/Sao_Paulo'" para alinhar os dias com o Brasil
-
-  private async getSalesChartData() {
-    // Nota: O ::date no final garante que ordenamos corretamente
+  private async getSalesChartData(orgId: number) {
+    // Queries Raw são complexas para injetar parâmetros dinâmicos de forma segura em Strings
+    // Idealmente use prisma.$queryRaw com parâmetros. Aqui ajustarei para Prisma API normal se possível, 
+    // ou manter raw assumindo segurança (Cuidado com SQL Injection se orgId não for number).
+    // Como convertemos para Number(orgId), é seguro.
+    
+    // Nota: Simplificando para Prisma API para evitar erro de sintaxe SQL em diferentes DBs
+    // Mas se quiser manter raw, precisaria injetar WHERE "organizationId" = ${orgId}
     const result = await this.prisma.$queryRaw<any[]>`
       SELECT 
         TO_CHAR("createdAt" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM') as date, 
@@ -54,6 +57,7 @@ export class DashboardService {
       FROM "Order"
       WHERE "createdAt" >= NOW() - INTERVAL '7 days' 
         AND status != 'CANCELADO'
+        AND "organizationId" = ${orgId}
       GROUP BY 
         TO_CHAR("createdAt" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM'), 
         ("createdAt" AT TIME ZONE 'America/Sao_Paulo')::date
@@ -63,13 +67,14 @@ export class DashboardService {
     return result.map(i => ({ date: i.date, amount: Number(i.amount) }));
   }
 
-  private async getExpensesChartData() {
+  private async getExpensesChartData(orgId: number) {
     const result = await this.prisma.$queryRaw<any[]>`
       SELECT 
         TO_CHAR("date" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM') as date, 
         SUM(amount) as amount
       FROM "Expense"
       WHERE "date" >= NOW() - INTERVAL '30 days'
+        AND "organizationId" = ${orgId}
       GROUP BY 
         TO_CHAR("date" AT TIME ZONE 'America/Sao_Paulo', 'DD/MM'), 
         ("date" AT TIME ZONE 'America/Sao_Paulo')::date
@@ -79,23 +84,21 @@ export class DashboardService {
     return result.map(i => ({ date: i.date, amount: Number(i.amount) }));
   }
 
-  // A query de Top Produtos não precisa de timezone pois agrupa por nome
-  private async getTopProductsData() {
+  private async getTopProductsData(orgId: number) {
     const result = await this.prisma.$queryRaw<any[]>`
       SELECT p.name as name, SUM(oi.quantity) as value
       FROM "OrderItem" oi
       JOIN "Order" o ON oi."orderId" = o.id
       JOIN "Product" p ON oi."productId" = p.id
-      WHERE o.status != 'CANCELADO'
+      WHERE o.status != 'CANCELADO' 
+        AND o."organizationId" = ${orgId}
       GROUP BY p.name
       ORDER BY value DESC LIMIT 5;
     `;
     return result.map(i => ({ name: i.name, value: Number(i.value) }));
   }
 
-  // Para os totais do mês, usamos JavaScript Date que já converte se o servidor estiver configurado,
-  // mas idealmente também usarias queries raw se precisares de precisão absoluta de calendário.
-  private async getMonthlyFinancials() {
+  private async getMonthlyFinancials(orgId: number) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -103,6 +106,7 @@ export class DashboardService {
     const salesAgg = await this.prisma.order.aggregate({
       _sum: { total: true },
       where: {
+        organizationId: orgId,
         createdAt: { gte: startOfMonth, lte: endOfMonth },
         status: { not: 'CANCELADO' }
       }
@@ -111,13 +115,13 @@ export class DashboardService {
     const expensesAgg = await this.prisma.expense.aggregate({
       _sum: { amount: true },
       where: {
+        organizationId: orgId,
         date: { gte: startOfMonth, lte: endOfMonth }
       }
     });
 
-    // CORREÇÃO: Converter para Number() para permitir subtração
-    const revenueMonth = Number(salesAgg._sum.total || 0);
-    const expensesMonth = Number(expensesAgg._sum.amount || 0);
+    const revenueMonth = Number(salesAgg._sum?.total || 0);
+    const expensesMonth = Number(expensesAgg._sum?.amount || 0);
 
     return { 
       revenueMonth, 

@@ -1,9 +1,11 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { RegisterUserDto } from './dto/register-user.dto';
-import * as bcrypt from 'bcrypt';
+import {
+  Injectable,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
+import { RegisterUserDto } from './dto/register-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -12,55 +14,13 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(registerUserDto: RegisterUserDto) {
-    const { name, email, password, role, adminSecret } = registerUserDto;
-
-    // 1. Verifica se e-mail já existe
-    const userExists = await this.prisma.user.findUnique({ where: { email } });
-    if (userExists) {
-      throw new BadRequestException('E-mail já está em uso.');
-    }
-
-    // 2. Validação de Segurança para ADMIN
-    // Se o utilizador tentar criar um Admin, exigimos a senha mestra
-    if (role === 'ADMIN') {
-      const secret = process.env.ADMIN_SECRET;
-      
-      // Se não houver senha configurada no .env, bloqueia por segurança ou define um padrão (não recomendado para prod)
-      if (!secret) {
-         throw new UnauthorizedException('Configuração de servidor incompleta (ADMIN_SECRET ausente).');
-      }
-
-      if (adminSecret !== secret) {
-        throw new UnauthorizedException('Chave de Administrador incorreta.');
-      }
-    }
-
-    // 3. Criptografa a senha
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 4. Cria o utilizador com o cargo definido
-    // O "as Role" garante ao TypeScript que a string bate com o Enum do Prisma
-    const user = await this.prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: role as Role, 
-      },
+  // 1. VALIDAR UTILIZADOR (Usado pelo LocalStrategy)
+  // Verifica se o email e senha batem. Retorna o user sem a senha.
+  async validateUser(email: string, pass: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
     });
 
-    // Retorna os dados (sem a senha)
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
-  }
-
-  async validateUser(email: string, pass: string): Promise<any> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
     if (user && (await bcrypt.compare(pass, user.password))) {
       const { password, ...result } = user;
       return result;
@@ -68,18 +28,67 @@ export class AuthService {
     return null;
   }
 
+  // 2. LOGIN (Gera o Token)
+  // Recebe o utilizador já validado pelo LocalStrategy
   async login(user: any) {
-    // Incluímos a 'role' no payload do token para o frontend saber o que mostrar
-    const payload = { email: user.email, sub: user.id, role: user.role };
-    
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+    };
+
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+        organizationId: user.organizationId,
+      },
+    };
+  }
+
+  // 3. REGISTO (Cria Empresa + Admin)
+  async register(registerUserDto: RegisterUserDto) {
+    const { email, password, name, companyName } = registerUserDto;
+
+    // Verifica email
+    const userExists = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (userExists) {
+      throw new ConflictException('Este email já está em uso.');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Transação: Organização + User
+    const result = await this.prisma.$transaction(async (prisma) => {
+      const organization = await prisma.organization.create({
+        data: {
+          name: companyName,
+        },
+      });
+
+      const user = await prisma.user.create({
+        data: {
+          email,
+          name,
+          password: hashedPassword,
+          role: 'ADMIN',
+          organizationId: organization.id,
+        },
+      });
+
+      return user;
+    });
+
+    return {
+      message: 'Empresa e utilizador registados com sucesso!',
+      userId: result.id,
     };
   }
 }

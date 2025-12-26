@@ -18,12 +18,12 @@ export class RegisterUserDto {
   @MinLength(6, { message: 'A senha deve ter pelo menos 6 caracteres' })
   password: string;
 
-  // NOVO: Campo de Cargo
-  @IsEnum(UserRole, { message: 'Cargo inválido. Use ADMIN, COZINHA ou DELIVERY' })
-  role: UserRole;
-
   // NOVO: Senha extra para Admin (Opcional, pois só Admin usa)
   @IsOptional()
   @IsString()
   adminSecret?: string;
+
+  @IsString({ message: 'O nome da empresa deve ser uma string' })
+  @IsNotEmpty({ message: 'O nome da empresa é obrigatório' })
+  companyName: string;
 }

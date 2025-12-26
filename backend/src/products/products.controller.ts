@@ -1,50 +1,42 @@
-// src/products/products.controller.ts
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  ParseIntPipe,
-  UseGuards, // <-- 1. IMPORTAÇÃO ADICIONADA AQUI
+  Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; // 2. Importe o guarda
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard) // 3. Proteja todas as rotas
+@UseGuards(JwtAuthGuard)
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  create(@Body() createProductDto: CreateProductDto) {
-    return this.productsService.create(createProductDto);
+  create(@Body() createProductDto: CreateProductDto, @Request() req: any) {
+    return this.productsService.create(createProductDto, req.user.organizationId);
   }
 
   @Get()
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Request() req: any) {
+    return this.productsService.findAll(req.user.organizationId);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.productsService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.productsService.findOne(id, req.user.organizationId);
   }
 
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateProductDto: UpdateProductDto,
+    @Request() req: any
   ) {
-    return this.productsService.update(id, updateProductDto);
+    return this.productsService.update(id, updateProductDto, req.user.organizationId);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.productsService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.productsService.remove(id, req.user.organizationId);
   }
 }

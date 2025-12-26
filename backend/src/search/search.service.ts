@@ -1,4 +1,3 @@
-// src/search/search.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -6,35 +5,33 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class SearchService {
   constructor(private prisma: PrismaService) {}
 
-  async searchGlobal(query: string) {
+  async searchGlobal(query: string, organizationId: number) {
     if (!query || query.length < 2) {
       return { clients: [], orders: [], products: [] };
     }
 
-    // Normaliza para busca case-insensitive (se o banco permitir, ou usamos contains)
     const searchTerm = query.trim();
+    const orgId = Number(organizationId); // Garante número
 
-    // Executa as 3 buscas simultaneamente
     const [clients, orders, products] = await Promise.all([
-      
-      // 1. Buscar Clientes (Nome ou Telefone)
+      // 1. Clientes
       this.prisma.client.findMany({
         where: {
+          organizationId: orgId,
           OR: [
             { name: { contains: searchTerm, mode: 'insensitive' } },
             { phone: { contains: searchTerm } },
           ],
         },
-        take: 5, // Limita a 5 resultados
+        take: 5,
       }),
 
-      // 2. Buscar Pedidos (ID ou Nome do Cliente)
+      // 2. Pedidos
       this.prisma.order.findMany({
         where: {
+          organizationId: orgId,
           OR: [
-            // Se for número, tenta buscar pelo ID
             ...(!isNaN(Number(searchTerm)) ? [{ id: Number(searchTerm) }] : []),
-            // Busca pelo nome do cliente associado
             { client: { name: { contains: searchTerm, mode: 'insensitive' } } },
           ],
         },
@@ -43,9 +40,10 @@ export class SearchService {
         orderBy: { createdAt: 'desc' },
       }),
 
-      // 3. Buscar Produtos (Nome)
+      // 3. Produtos
       this.prisma.product.findMany({
         where: {
+          organizationId: orgId,
           name: { contains: searchTerm, mode: 'insensitive' },
         },
         take: 5,

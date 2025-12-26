@@ -7,44 +7,42 @@ import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard) // Protege todas as rotas
+@UseGuards(JwtAuthGuard)
 @Controller('expenses')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
-  // 1. Injetamos o Request para acessar o usuário logado
   create(@Body() createExpenseDto: CreateExpenseDto, @Request() req: any) {
-    // 2. Pegamos o ID do usuário do token
-    const userId = req.user.userId;
-    
-    // 3. Passamos o userId como segundo argumento, corrigindo o erro
-    return this.expensesService.create(createExpenseDto, userId);
+    return this.expensesService.create(createExpenseDto, req.user.userId, req.user.organizationId);
   }
 
   @Get()
-  findAll() {
-    return this.expensesService.findAll();
+  findAll(@Request() req: any) {
+    return this.expensesService.findAll(req.user.organizationId);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.expensesService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.expensesService.findOne(id, req.user.organizationId);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateExpenseDto: UpdateExpenseDto) {
-    return this.expensesService.update(id, updateExpenseDto);
+  update(
+    @Param('id', ParseIntPipe) id: number, 
+    @Body() updateExpenseDto: UpdateExpenseDto,
+    @Request() req: any
+  ) {
+    return this.expensesService.update(id, updateExpenseDto, req.user.organizationId);
   }
 
   @Delete('delete-all')
   removeAll(@Request() req: any) {
-    // Passando o ID do usuário caso implemente auditoria
-    return this.expensesService.removeAll(req.user?.userId || 0); 
+    return this.expensesService.removeAll(req.user.userId, req.user.organizationId);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.expensesService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.expensesService.remove(id, req.user.organizationId);
   }
 }

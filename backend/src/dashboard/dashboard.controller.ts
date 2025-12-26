@@ -1,14 +1,14 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; // 1. Importe o nosso "Guarda"
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard) // 2. Proteja todas as rotas deste controlador
-@Controller('dashboard') // O prefixo da rota será /dashboard
+@UseGuards(JwtAuthGuard)
+@Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
-  @Get('stats') // O endpoint completo será GET /dashboard/stats
-  getStats() {
-    return this.dashboardService.getStats();
+  @Get('stats')
+  getStats(@Request() req: any) {
+    return this.dashboardService.getStats(req.user.organizationId);
   }
 }

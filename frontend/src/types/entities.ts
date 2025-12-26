@@ -52,5 +52,6 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'ADMIN' | 'USER'; // <--- Adicione
+  role: 'ADMIN' | 'USER';
+  organizationId?: string;
 }
