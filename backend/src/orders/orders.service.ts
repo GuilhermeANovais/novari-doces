@@ -1,9 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateOrderDto, PaymentMethodDto } from './dto/create-order.dto';
+import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { AuditService } from 'src/audit/audit.service';
-import { PaymentMethod } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
@@ -12,186 +11,183 @@ export class OrdersService {
     private auditService: AuditService
   ) {}
 
-  async create(createOrderDto: CreateOrderDto, userId: number, organizationId: number) {
+  async create(createOrderDto: CreateOrderDto, userId: number, organizationId: string | number) {
+    const orgId = Number(organizationId);
     const { items, clientId, observations, paymentMethod, deliveryDate } = createOrderDto;
-    const orgId = Number(organizationId); // Garante número
 
+    // 1. Verificar Limites do Plano
+    await this.checkPlanLimits(orgId);
+
+    // 2. Verificar produtos
     const productIds = items.map((item) => item.productId);
     const productsInDb = await this.prisma.product.findMany({ 
       where: { 
         id: { in: productIds },
-        organizationId: orgId 
+        organizationId: orgId,
+        deletedAt: null
       } 
     });
     
     if (productsInDb.length !== productIds.length) {
-      throw new NotFoundException('Alguns produtos não foram encontrados nesta organização.');
+      throw new NotFoundException('Alguns produtos não foram encontrados ou não pertencem à sua organização.');
     }
 
+    // 3. Verificar cliente
     if (clientId) {
-      const exists = await this.prisma.client.findUnique({ where: { id: clientId } });
-      if (!exists || exists.organizationId !== orgId) throw new NotFoundException('Cliente não encontrado.');
+      const clientExists = await this.prisma.client.findFirst({ 
+        where: { id: clientId, organizationId: orgId } 
+      });
+      if (!clientExists) throw new NotFoundException('Cliente não encontrado nesta organização.');
     }
 
+    // 4. Calcular total
     let total = 0;
     const orderItemsData = items.map((item) => {
       const product = productsInDb.find((p) => p.id === item.productId);
-      if (!product) throw new BadRequestException(`Produto erro.`);
+      if (!product) throw new BadRequestException(`Produto ID ${item.productId} inválido.`);
       
-      const priceVal = Number(product.price);
-      total += priceVal * item.quantity;
-      
-      return { productId: item.productId, quantity: item.quantity, price: priceVal };
+      const itemTotal = Number(product.price) * item.quantity;
+      total += itemTotal;
+
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        price: product.price,
+      };
     });
 
-    if (paymentMethod === PaymentMethodDto.CARTAO) total *= 1.06;
-
-    const methodForDb = paymentMethod as unknown as PaymentMethod;
-
-    const newOrder = await this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.create({
-        data: {
-          userId,
-          organizationId: orgId,
-          total,
-          status: 'PENDENTE',
-          observations,
-          clientId,
-          paymentMethod: methodForDb,
-          deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+    // 5. Criar Pedido
+    const order = await this.prisma.order.create({
+      data: {
+        total,
+        observations,
+        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+        status: 'PENDENTE',
+        paymentMethod: paymentMethod as any, 
+        clientId,
+        organizationId: orgId,
+        userId: userId, // <--- CORREÇÃO 1: Adicionado o ID do criador
+        items: {
+          create: orderItemsData,
         },
-      });
-
-      await tx.orderItem.createMany({
-        data: orderItemsData.map((item) => ({ ...item, orderId: order.id })),
-      });
-
-      return tx.order.findUnique({ where: { id: order.id }, include: { items: true, client: true } });
+      },
+      include: { items: true },
     });
 
-    if (newOrder) {
-      // Removido organizationId do final (createLog aceita apenas 5 args)
-      await this.auditService.createLog(userId, 'CREATE', 'Order', newOrder.id, `Pedido criado. R$ ${total.toFixed(2)}`);
-    }
-
-    return newOrder;
+    await this.auditService.createLog(userId, 'CREATE', 'Order', order.id, 'Pedido criado.');
+    return order;
   }
 
-  findAll(organizationId: number) {
+  async findAll(organizationId: string | number) {
+    const orgId = Number(organizationId);
     return this.prisma.order.findMany({
-      where: {
-        deletedAt: null,
-        organizationId: Number(organizationId)
+      where: { 
+        organizationId: orgId,
+        deletedAt: null 
+      },
+      include: { 
+        items: { include: { product: true } }, 
+        client: true 
       },
       orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true, email: true } },
-        client: { select: { name: true, phone: true } },
-        items: { include: { product: true } }
-      }
     });
   }
 
-  findOne(id: number, organizationId: number) {
-    return this.prisma.order.findUnique({
-      where: { id }, // Prisma já filtra único por ID, mas poderíamos validar org depois
-      include: {
-        user: { select: { name: true, email: true } },
-        client: { select: { name: true, phone: true, address: true } },
-        items: { include: { product: { select: { name: true, price: true } } } }
-      }
-    });
-  }
-
-  async update(id: number, updateOrderDto: UpdateOrderDto, userId: number, organizationId: number) {
-    const { items, clientId, observations, status, paymentMethod, deliveryDate } = updateOrderDto;
+  async findOne(id: number, organizationId: string | number) {
     const orgId = Number(organizationId);
-
-    const currentOrder = await this.prisma.order.findFirst({ 
-      where: { id, organizationId: orgId },
-      include: { items: true } 
-    });
-    if (!currentOrder) throw new NotFoundException(`Pedido #${id} não encontrado.`);
-
-    const updatedOrder = await this.prisma.$transaction(async (tx) => {
-      let total = Number(currentOrder.total);
-      
-      if (items && items.length > 0) {
-        await tx.orderItem.deleteMany({ where: { orderId: id } });
-
-        const productIds = items.map(i => i.productId);
-        const productsInDb = await this.prisma.product.findMany({ 
-          where: { id: { in: productIds }, organizationId: orgId } 
-        });
-
-        let newTotal = 0;
-        const newItemsData = items.map(item => {
-          const product = productsInDb.find(p => p.id === item.productId);
-          if (!product) throw new BadRequestException(`Produto ID ${item.productId} não encontrado.`);
-          
-          const priceVal = Number(product.price);
-          newTotal += priceVal * item.quantity;
-
-          return { productId: item.productId, quantity: item.quantity, price: priceVal, orderId: id };
-        });
-
-        const methodToCheck = paymentMethod || currentOrder.paymentMethod;
-        // @ts-ignore
-        if (methodToCheck === 'CARTAO' || methodToCheck === 'CARTÃO') { 
-             newTotal *= 1.06;
-        }
-
-        await tx.orderItem.createMany({ data: newItemsData });
-        total = newTotal;
-      }
-
-      return tx.order.update({
-        where: { id },
-        data: {
-          status,
-          clientId,
-          observations,
-          deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
-          paymentMethod: paymentMethod as any,
-          total: items ? total : undefined,
-        },
-        include: { items: true, client: true }
-      });
+    const order = await this.prisma.order.findFirst({
+      where: { 
+        id, 
+        organizationId: orgId,
+        deletedAt: null
+      },
+      include: { 
+        items: { include: { product: true } }, 
+        client: true 
+      },
     });
 
-    await this.auditService.createLog(userId, 'UPDATE', 'Order', id, 'Pedido editado.');
+    if (!order) throw new NotFoundException(`Pedido #${id} não encontrado.`);
+    return order;
+  }
+
+  async update(id: number, updateOrderDto: UpdateOrderDto, userId: number, organizationId: string | number) {
+    const orgId = Number(organizationId);
+    await this.findOne(id, orgId);
+
+    const { items, paymentMethod, status, deliveryDate, ...rest } = updateOrderDto;
+    
+    const dataToUpdate: any = { 
+      ...rest,
+      status: status as any,
+      deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
+    };
+
+    const updatedOrder = await this.prisma.order.update({
+      where: { id },
+      data: dataToUpdate,
+      include: { items: true, client: true }
+    });
+
+    await this.auditService.createLog(userId, 'UPDATE', 'Order', id, `Pedido atualizado para status: ${status}`);
     return updatedOrder;
   }
 
-  async remove(id: number, userId: number, organizationId: number) {
+  async remove(id: number, userId: number, organizationId: string | number) {
     const orgId = Number(organizationId);
-    // Verifica posse antes de deletar
-    const order = await this.prisma.order.findFirst({ where: { id, organizationId: orgId } });
-    if (!order) throw new NotFoundException("Pedido não encontrado");
+    await this.findOne(id, orgId);
 
     await this.prisma.order.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date() }, 
     });
     
     await this.auditService.createLog(userId, 'DELETE', 'Order', id, 'Pedido movido para a lixeira.');
-    return { message: 'Sucesso' };
+    return { message: 'Pedido removido com sucesso.' };
   }
 
-  async removeAll(userId: number, organizationId: number) {
+  // --- CORREÇÃO 2: Adicionada a função removeAll que faltava ---
+  async removeAll(userId: number, organizationId: string | number) {
     const orgId = Number(organizationId);
     
-    const count = await this.prisma.$transaction(async (tx) => {
-      // Remove apenas itens de pedidos desta organização
-      await tx.orderItem.deleteMany({
-        where: { order: { organizationId: orgId } }
-      });
-      return tx.order.deleteMany({
-        where: { organizationId: orgId }
-      });
+    // Apaga (Soft Delete) todos os pedidos daquela organização
+    const result = await this.prisma.order.updateMany({
+      where: { organizationId: orgId },
+      data: { deletedAt: new Date() }
     });
 
-    await this.auditService.createLog(userId, 'DELETE_ALL', 'Order', 0, `Limpou ${count.count} pedidos.`);
-    return { message: `Foram removidos ${count.count} pedidos.` };
+    await this.auditService.createLog(userId, 'DELETE_ALL', 'Order', 0, 'Todos os pedidos foram movidos para a lixeira.');
+    
+    return { message: `${result.count} pedidos removidos.` };
+  }
+
+  private async checkPlanLimits(organizationId: number) {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { plan: true } 
+    });
+
+    if (!organization) throw new NotFoundException('Organização não encontrada.');
+
+    if (organization.plan === 'PRO') return;
+
+    const LIMITE_FREE = 30;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const ordersCount = await this.prisma.order.count({
+      where: {
+        organizationId,
+        createdAt: { gte: startOfMonth, lte: endOfMonth },
+        deletedAt: null
+      }
+    });
+
+    if (ordersCount >= LIMITE_FREE) {
+      throw new ForbiddenException(
+        `Limite do plano Grátis atingido (${ordersCount}/${LIMITE_FREE}). Faça upgrade para continuar a vender.`
+      );
+    }
   }
 }

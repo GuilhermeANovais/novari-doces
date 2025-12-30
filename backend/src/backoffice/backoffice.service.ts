@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -6,7 +6,6 @@ export class BackofficeService {
   constructor(private prisma: PrismaService) {}
 
   async listAllCompanies() {
-    // Busca todas as organizações e conta quantos users/orders elas têm
     const companies = await this.prisma.organization.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
@@ -17,7 +16,6 @@ export class BackofficeService {
             products: true
           }
         },
-        // Opcional: Pegar o email do Admin (primeiro user criado)
         users: {
           where: { role: 'ADMIN' },
           take: 1,
@@ -26,11 +24,11 @@ export class BackofficeService {
       }
     });
 
-    // Formata o retorno para ser mais limpo no frontend
     return companies.map(comp => ({
-      id: comp.id,
+      id: comp.id.toString(),
       name: comp.name,
       createdAt: comp.createdAt,
+      plan: comp.plan, // <--- ADICIONE ISTO (Enviar o plano atual)
       adminEmail: comp.users[0]?.email || 'N/A',
       adminName: comp.users[0]?.name || 'N/A',
       stats: {
@@ -41,10 +39,19 @@ export class BackofficeService {
     }));
   }
 
-  // Suspender/Apagar empresa (Futuro)
+  // --- NOVA FUNÇÃO: Mudar Plano ---
+  async togglePlan(organizationId: string, newPlan: 'FREE' | 'PRO') {
+
+    const idAsNumber = Number(organizationId);
+
+    return this.prisma.organization.update({
+      where: { id: idAsNumber },
+      data: { plan: newPlan },
+    });
+  }
+
   async deleteCompany(organizationId: string) {
-    // CUIDADO: Isto apagaria tudo (Cascade). 
-    // Por enquanto vamos só retornar um aviso.
+    // Simulação por segurança
     return { message: `Simulação: Empresa ${organizationId} seria apagada.` };
   }
 }

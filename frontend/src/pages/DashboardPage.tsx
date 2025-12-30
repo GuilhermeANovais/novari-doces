@@ -1,12 +1,13 @@
 import { 
   Box, Typography, Grid, Paper, CircularProgress, 
-  Alert, AlertTitle, List, ListItem, ListItemText, Chip 
+  Alert, AlertTitle, List, ListItem, ListItemText, Chip,
+  LinearProgress, Button 
 } from '@mui/material';
 import { 
   TriangleAlert, Package, Users, DollarSign, Timer, 
-  TrendingDown, Wallet 
+  TrendingDown, Wallet, Crown 
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query'; // <--- Importação do React Query
+import { useQuery } from '@tanstack/react-query'; 
 import api from '../api';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -32,218 +33,240 @@ interface Stats {
   expensesData: ChartData[];
   topProducts: TopProduct[];
   upcomingOrders: UpcomingOrder[];
-  revenueMonth: number;
-  expensesMonth: number;
-  netProfit: number;
+  
+  // Financeiro (nomes iguais ao backend)
+  revenue: number;
+  expenses: number;
+  profit: number;
+
+  // Plano SaaS
+  plan: 'FREE' | 'PRO';
+  usage: number;
+  limit: number | string;
 }
 
 interface StatCardProps {
   title: string;
   value: number | string;
   color?: string;
-  icon: React.ReactNode;
+  icon: React.ElementType;
+  isCurrency?: boolean;
 }
 
-function StatCard({ title, value, color, icon }: StatCardProps) {
+function StatCard({ title, value, color = '#1976d2', icon: Icon, isCurrency }: StatCardProps) {
   return (
-    <Grid item xs={12} sm={6} md={3}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2.5, backgroundColor: 'white', borderRadius: 2,
-          border: '1px solid #e0e0e0', borderLeft: `5px solid ${color || '#1B5E20'}`,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%' 
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Typography variant="subtitle2" color="textSecondary" gutterBottom sx={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', mb: 0 }}>
-            {title}
-          </Typography>
-          <Typography variant="h4" component="p" sx={{ fontWeight: 'bold', color: '#333', lineHeight: 1.2 }}>
-            {value}
-          </Typography>
-        </Box>
-        <Box sx={{ color: color || '#1B5E20', opacity: 0.9, width: 45, height: 45, borderRadius: '50%', backgroundColor: `${color}15`, display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
-          {icon}
-        </Box>
-      </Paper>
-    </Grid>
+    <Paper elevation={2} sx={{ p: 3, display: 'flex', alignItems: 'center', height: '100%', borderRadius: 3 }}>
+      <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: `${color}15`, mr: 2 }}>
+        <Icon size={28} color={color} />
+      </Box>
+      <Box>
+        <Typography variant="body2" color="textSecondary" fontWeight={500}>
+          {title}
+        </Typography>
+        <Typography variant="h5" fontWeight="bold" sx={{ color: '#2c3e50' }}>
+          {isCurrency 
+            ? Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            : value
+          }
+        </Typography>
+      </Box>
+    </Paper>
   );
 }
-
-// Formatador de Moeda
-const formatCurrency = (value: number) => 
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 export function DashboardPage() {
   const navigate = useNavigate();
 
-  // --- REFACTOR REACT QUERY ---
-  // Substitui useState e useEffect por uma única linha poderosa
-  const { data: stats, isLoading, isError } = useQuery({
-    queryKey: ['dashboard-stats'], // Identificador único do cache
+  const { data: stats, isLoading, error } = useQuery<Stats>({
+    queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const response = await api.get<Stats>('/dashboard/stats');
-      return response.data;
+      const res = await api.get('/dashboard/stats');
+      return res.data;
     },
-    refetchInterval: 60000, // Atualiza automaticamente a cada 1 minuto (Dashboard "Vivo")
-    staleTime: 30000, // Considera os dados frescos por 30s antes de tentar buscar de novo ao focar a janela
+    refetchInterval: 30000, 
   });
 
   if (isLoading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>;
-  }
-
-  if (isError) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">Erro ao carregar dados do dashboard. Tente recarregar a página.</Alert>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+        <CircularProgress size={60} thickness={4} />
       </Box>
     );
   }
 
-  return (
-    <Box sx={{ pb: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 'bold', color: '#1a1a1a' }}>
-        Visão Geral
-      </Typography>
+  if (error) {
+    return (
+      <Box sx={{ mt: 4 }}>
+        <Alert severity="error">
+          <AlertTitle>Erro</AlertTitle>
+          Não foi possível carregar os dados do dashboard.
+        </Alert>
+      </Box>
+    );
+  }
 
-      {/* Alertas */}
-      {stats?.upcomingOrders && stats.upcomingOrders.length > 0 && (
-        <Paper elevation={0} sx={{ mb: 4, overflow: 'hidden', border: '1px solid #ed6c02', borderRadius: 2 }}>
-          <Alert severity="warning" icon={<TriangleAlert size={24} />} sx={{ backgroundColor: '#fff3e0' }}>
-            <AlertTitle sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-              Atenção: {stats.upcomingOrders.length} Pedido(s) para entregar em breve!
-            </AlertTitle>
-            <List dense>
-              {stats.upcomingOrders.map((order) => (
-                <ListItem key={order.id} button onClick={() => navigate('/calendar')} sx={{ borderBottom: '1px solid rgba(0,0,0,0.05)', '&:last-child': { borderBottom: 'none' } }}>
-                  <ListItemText 
-                    primary={
-                      <Typography variant="subtitle2">
-                        <b>Pedido #{order.id}</b> - {order.client?.name || 'Cliente Balcão'}
-                      </Typography>
-                    } 
-                    secondary={`Entrega: ${new Date(order.deliveryDate).toLocaleString('pt-BR')}`} 
-                  />
-                  <Chip label="Pendente" color="warning" size="small" variant="outlined" />
-                </ListItem>
-              ))}
-            </List>
-          </Alert>
+  const statCards = [
+    { title: 'Faturamento', value: stats?.revenue || 0, icon: DollarSign, color: '#2e7d32', isCurrency: true },
+    { title: 'Despesas', value: stats?.expenses || 0, icon: TrendingDown, color: '#d32f2f', isCurrency: true },
+    { title: 'Lucro Líquido', value: stats?.profit || 0, icon: Wallet, color: (stats?.profit || 0) >= 0 ? '#1565c0' : '#c62828', isCurrency: true },
+    { title: 'Produtos Ativos', value: stats?.productCount || 0, icon: Package, color: '#ed6c02' },
+    { title: 'Clientes/Users', value: stats?.userCount || 0, icon: Users, color: '#0288d1' },
+    { title: 'Pedidos Próx.', value: stats?.upcomingOrders.length || 0, icon: Timer, color: '#9c27b0' },
+  ];
+
+  return (
+    <Box>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight="bold" color="#1a1a1a">
+          Visão Geral
+        </Typography>
+        <Typography variant="body1" color="textSecondary">
+          Acompanhe o desempenho da sua confeitaria em tempo real.
+        </Typography>
+      </Box>
+
+      {/* --- ALERTA DE PLANO FREE --- */}
+      {stats?.plan === 'FREE' && (
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 3, 
+            mb: 4, 
+            bgcolor: '#fff8e1', 
+            border: '1px solid #ffecb3', 
+            borderRadius: 2 
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ p: 1, bgcolor: '#ffecb3', borderRadius: '50%', mr: 2 }}>
+               <Crown size={24} color="#f57c00" />
+            </Box>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6" fontWeight="bold" color="#e65100">
+                Plano Grátis
+              </Typography>
+              <Typography variant="body2" color="#bf360c">
+                Você utilizou <b>{stats.usage}</b> de <b>{stats.limit}</b> pedidos mensais gratuitos.
+              </Typography>
+            </Box>
+            <Button variant="contained" color="warning" sx={{ fontWeight: 'bold' }}>
+              Fazer Upgrade
+            </Button>
+          </Box>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+             <Box sx={{ width: '100%', mr: 1 }}>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={Math.min((stats.usage / 30) * 100, 100)} 
+                  sx={{ 
+                    height: 10, 
+                    borderRadius: 5, 
+                    bgcolor: '#ffecb3',
+                    '& .MuiLinearProgress-bar': { bgcolor: '#f57c00' }
+                  }} 
+                />
+             </Box>
+             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 35 }}>
+               {Math.round((stats.usage / 30) * 100)}%
+             </Typography>
+          </Box>
         </Paper>
       )}
 
-      {/* --- LINHA 1: KPIs Operacionais --- */}
+      {/* Grid de Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <StatCard title="Entregas Urgentes" value={stats?.upcomingOrders.length || 0} color="#d32f2f" icon={<Timer size={20} strokeWidth={2} />} />
-        <StatCard title="Produtos" value={stats?.productCount || 0} color="#1976d2" icon={<Package size={20} strokeWidth={2} />} />
-        <StatCard title="Usuários" value={stats?.userCount || 0} color="#ed6c02" icon={<Users size={20} strokeWidth={2} />} />
+        {statCards.map((card, index) => (
+          <Grid item xs={12} sm={6} md={4} key={index}>
+            <StatCard {...card} />
+          </Grid>
+        ))}
       </Grid>
 
-      {/* --- LINHA 2: KPIs Financeiros do Mês --- */}
-      <Typography variant="h5" gutterBottom sx={{ mb: 2, fontWeight: 600, color: '#1a1a1a' }}>
-        Financeiro
-      </Typography>
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Adicionei Number() para garantir segurança caso venha string do backend */}
-        <StatCard title="Faturamento" value={formatCurrency(Number(stats?.revenueMonth || 0))} color="#16a34a" icon={<DollarSign size={20} strokeWidth={2} />} />
-        <StatCard title="Despesas" value={formatCurrency(Number(stats?.expensesMonth || 0))} color="#dc2626" icon={<TrendingDown size={20} strokeWidth={2} />} />
-        <StatCard 
-          title="Lucro Líquido" 
-          value={formatCurrency(Number(stats?.netProfit || 0))} 
-          color={(stats?.netProfit || 0) >= 0 ? "#00c7ce" : "#dc2626"} 
-          icon={<Wallet size={20} strokeWidth={2} />} 
-        />
-      </Grid>
-
-      {/* --- LINHA 3: Gráficos e Mural --- */}
       <Grid container spacing={3}>
-        
-        {/* Gráfico de Vendas */}
-        <Grid item xs={12} lg={8}>
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Faturamento (7 Dias)</Typography>
-            <ResponsiveContainer width="100%" height="85%">
-              <LineChart data={stats?.salesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} dy={10} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
-                <Tooltip formatter={(value: number) => [formatCurrency(value), 'Vendas']} contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
-                <Line type="monotone" dataKey="amount" stroke="#16a34a" strokeWidth={3} activeDot={{ r: 6 }} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-
-          {/* Gráfico de Despesas */}
-          <Paper elevation={0} sx={{ p: 3, height: 400, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Despesas (30 Dias)</Typography>
-            <ResponsiveContainer width="100%" height="85%">
-              <AreaChart data={stats?.expensesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+        {/* GRÁFICO DE FATURAMENTO */}
+        <Grid item xs={12} md={8}>
+          <Paper elevation={2} sx={{ p: 3, borderRadius: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
+              Faturamento vs. Despesas (6 meses)
+            </Typography>
+            {/* Placeholder para gráfico real - usando dados mockados se vazio */}
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats?.salesData.length ? stats.salesData : [{date: 'Jan', amount: 0}]}>
                 <defs>
-                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2e7d32" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#2e7d32" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} dy={10} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
-                <Tooltip formatter={(value: number) => [formatCurrency(value), 'Despesas']} contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="amount" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} />
+                <Tooltip />
+                <Area type="monotone" dataKey="amount" stroke="#2e7d32" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
               </AreaChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
 
-        {/* COLUNA LATERAL: Top Produtos + MURAL DE AVISOS */}
-        <Grid item xs={12} lg={4}>
-          <Paper elevation={0} sx={{ p: 3, width: '100%', border: '1px solid #e0e0e0', borderRadius: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>Top Produtos</Typography>
-            <List disablePadding>
-              {stats?.topProducts && stats.topProducts.length > 0 ? (
-                stats.topProducts.map((product, index) => (
-                  <ListItem 
-                    key={index} 
-                    divider={index < stats.topProducts.length - 1}
-                    sx={{ px: 1, py: 1.5 }}
-                  >
-                    <Box 
-                      sx={{ 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: 32, height: 32, borderRadius: '50%', 
-                        bgcolor: index < 3 ? '#e8f5e9' : '#f5f5f5', 
-                        color: index < 3 ? '#1B5E20' : '#757575',
-                        mr: 2, fontWeight: 'bold', fontSize: '0.875rem'
-                      }}
-                    >
-                      {index + 1}
-                    </Box>
-                    <ListItemText 
-                      primary={product.name} 
-                      primaryTypographyProps={{ fontWeight: 500, color: '#333' }}
-                    />
-                    <Chip 
-                      label={`${Number(product.value)} un.`} // Conversão de segurança
-                      size="small" 
-                      sx={{ fontWeight: 'bold', bgcolor: '#f0fdf4', color: '#166534', borderRadius: 1.5 }} 
-                    />
-                  </ListItem>
-                ))
-              ) : (
-                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
-                  Nenhum dado de vendas.
+        {/* TOP PRODUTOS E MURAL */}
+        <Grid item xs={12} md={4}>
+          <Grid container spacing={3} direction="column">
+            
+            {/* TOP PRODUTOS */}
+            <Grid item>
+              <Paper elevation={2} sx={{ p: 3, borderRadius: 3, minHeight: 400 }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+                  Top 5 Produtos
                 </Typography>
-              )}
-            </List>
-          </Paper>
+                <List>
+                  {stats?.topProducts?.length ? (
+                    stats.topProducts.map((product, index) => (
+                      <ListItem 
+                        key={index} 
+                        disableGutters 
+                        sx={{ borderBottom: index < 4 ? '1px solid #f0f0f0' : 'none', py: 1.5 }}
+                      >
+                        <Box 
+                          sx={{ 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 32, height: 32, borderRadius: '50%', 
+                            bgcolor: index < 3 ? '#e8f5e9' : '#f5f5f5', 
+                            color: index < 3 ? '#1B5E20' : '#757575',
+                            mr: 2, fontWeight: 'bold', fontSize: '0.875rem'
+                          }}
+                        >
+                          {index + 1}
+                        </Box>
+                        <ListItemText 
+                          primary={product.name} 
+                          primaryTypographyProps={{ fontWeight: 500, color: '#333' }}
+                        />
+                        <Chip 
+                          label={`${Number(product.value)} un.`} 
+                          size="small" 
+                          sx={{ fontWeight: 'bold', bgcolor: '#f0fdf4', color: '#166534', borderRadius: 1.5 }} 
+                        />
+                      </ListItem>
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
+                      Nenhum dado de vendas.
+                    </Typography>
+                  )}
+                </List>
+              </Paper>
+            </Grid>
+            
+            {/* MURAL DE AVISOS */}
+            <Grid item>
+               <Box sx={{ height: 400 }}>
+                 <NoticeBoard />
+               </Box>
+            </Grid>
 
-          {/* MURAL DE AVISOS */}
-          <Box sx={{ height: 400 }}>
-            <NoticeBoard />
-          </Box>
+          </Grid>
         </Grid>
-
       </Grid>
     </Box>
   );
