@@ -16,6 +16,7 @@ import { TasksService } from './tasks/tasks.service';
 import { ReportsModule } from './reports/reports.module';
 import { SearchModule } from './search/search.module';
 import { NoticesModule } from './notices/notices.module';
+import { BackofficeModule } from './backoffice/backoffice.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { NoticesModule } from './notices/notices.module';
     ReportsModule,
     SearchModule,
     NoticesModule,
+    BackofficeModule,
   ],
   controllers: [AppController],
   providers: [AppService, PdfService, TasksService],

@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { 
   LayoutDashboard, ShoppingBag, Receipt, CalendarDays, Users, LogOut,
-  ChefHat, History, Wallet, FileText, KanbanSquare, Settings, Menu as MenuIcon 
+  ChefHat, History, Wallet, FileText, KanbanSquare, Settings, Menu as MenuIcon, ShieldAlert,
 } from 'lucide-react';
 import { Routes, Route, Link, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -27,6 +27,7 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { ReportsHistoryPage } from './pages/ReportsHistoryPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { BackofficePage } from './pages/BackofficePage';
 
 const drawerWidth = 240;
 
@@ -93,6 +94,8 @@ function DashboardLayout() {
         <MenuLink to="/expenses" text="Despesas" icon={<Wallet size={20} />} roles={['ADMIN']} />
         <MenuLink to="/history" text="Histórico" icon={<FileText size={20} />} roles={['ADMIN']} />
         <MenuLink to="/audit" text="Auditoria" icon={<History size={20} />} roles={['ADMIN']} />
+        {/* BACKOFFICE: Apenas Master */}
+        <MenuLink to="/backoffice" text="Master Admin" icon={<ShieldAlert size={20} />} roles={['MASTER']} />
       </List>
       
       <List sx={{ marginTop: 'auto', mb: 1 }}>
@@ -192,6 +195,11 @@ function App() {
         <Route path="history" element={<ProtectedRoute allowedRoles={['ADMIN']}><ReportsHistoryPage /></ProtectedRoute>} />
         <Route path="audit" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditPage /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute allowedRoles={['ADMIN']}><SettingsPage /></ProtectedRoute>} />
+        <Route path="backoffice" element={
+        <ProtectedRoute allowedRoles={['MASTER']}>
+          <BackofficePage />
+        </ProtectedRoute>
+      } />
       </Route>
 
       {/* --- CATCH ALL: Redireciona para a Landing Page se a rota não existir --- */}
